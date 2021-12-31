@@ -20,6 +20,7 @@ setup(
 	python_requires='>=3.5',
 	install_requires=[
 		'PyNaCl>=1.3.0',
-		'pycryptostring>=1.0.0'
+		'pycryptostring>=1.0.0',
+		'retval>=1.0.0'
 	]
 )
