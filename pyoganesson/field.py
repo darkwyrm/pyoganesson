@@ -30,6 +30,7 @@ def check_uint_range(value: int, bitcount: int) -> bool:
 	
 	return 0 <= value <= (1 << bitcount) - 1
 
+
 def field_type_to_string(field_type: int):
 	'''Converts a field type to a string representing it'''
 
@@ -55,6 +56,7 @@ def field_type_to_string(field_type: int):
 		return type_list[field_type]
 
 	return ''
+
 
 class DataField:
 	'''The DataField class manages the message type codes and associated data sizes'''
