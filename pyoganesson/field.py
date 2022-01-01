@@ -1,8 +1,34 @@
-from retval import RetVal, ErrBadType
+from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange
+import struct
 
 # The DataField structure is the foundation of the lower levels of Oganesson messaging and is used
 # for data serialization. The serialized format consists of a type code, a UInt16 length, and a
 # byte array of up to 64K.
+
+def check_int_range(value: int, bitcount: int) -> bool:
+	'''Returns true if the given value fits in an integer of the specified bit size.
+	
+	This function raises an exception if the bit count is less than one or greater than 64.'''
+	
+	if bitcount < 1 or bitcount > 64:
+		raise ValueError('bitcount must be 1 - 64')
+	
+	intmin = -(1 << (bitcount - 1))
+	intmax =  (1 << (bitcount - 1)) - 1
+	
+	return intmin <= value <= intmax
+
+
+def check_uint_range(value: int, bitcount: int) -> bool:
+	'''Returns true if the given value fits in an unsigned integer of the specified bit size.
+	
+	This function raises an exception if the bit count is less than one or greater than 64.'''
+	
+	if bitcount < 1 or bitcount > 64:
+		raise ValueError('bitcount must be 1 - 64')
+	
+	return 0 <= value <= (1 << bitcount) - 1
+
 
 class DataField:
 	'''The DataField class manages the message type codes and associated data sizes'''
@@ -73,3 +99,125 @@ class DataField:
 		
 		return flat_size > 0 and len(self.value) == flat_size - 3
 
+	def set(self, field_type: int, field_value: any) -> RetVal():
+		'''Sets the field's value to whatever is passed to the function.
+
+		A type specifier is required because of the framework's strict typing. Objects and lists 
+		are not supported. Passing a dictionary to this function will set the field as a map type
+		and assigned its length to the length of the dictionary passed to it.
+		'''
+
+		self.type = field_type
+		if self.get_flat_size() < 0:
+			return RetVal(ErrBadType)
+		
+		if isinstance(field_value, list):
+			return RetVal(ErrBadValue)
+
+		if self.type in [DataField.String, DataField.MsgCode]:
+			if not isinstance(field_value, str):
+				return RetVal(ErrBadValue)
+			self.value = field_value[:min(65535, len(field_value))]
+		
+		if self.type == DataField.Byte:
+			if not isinstance(field_value, bytes):
+				return RetVal(ErrBadValue)
+			self.value = field_value[:min(65535, len(field_value))]
+
+		if self.type == DataField.Int8:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_int_range(field_value, 8):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!b', field_value)
+
+		if self.type == DataField.UInt8:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_uint_range(field_value, 8):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!B', field_value)
+
+		if self.type == DataField.Int16:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_int_range(field_value, 16):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!h', field_value)
+
+		if self.type == DataField.UInt16:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_uint_range(field_value, 16):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!H', field_value)
+
+		if self.type == DataField.Int32:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_int_range(field_value, 32):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!i', field_value)
+
+		if self.type == DataField.UInt32:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_uint_range(field_value, 32):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!I', field_value)
+
+		if self.type == DataField.Int64:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_int_range(field_value, 64):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!q', field_value)
+
+		if self.type == DataField.UInt64:
+			if not isinstance(field_value, int):
+				return RetVal(ErrBadValue)
+			
+			if not check_uint_range(field_value, 64):
+				return RetVal(ErrOutOfRange)
+			
+			self.value = struct.pack('!Q', field_value)
+
+		if self.type == DataField.Bool:
+			if not isinstance(field_value, bool):
+				return RetVal(ErrBadValue)
+			
+			self.value = struct.pack('!?', field_value)
+
+		if self.type == DataField.Float32:
+			if not isinstance(field_value, float):
+				return RetVal(ErrBadValue)
+			
+			self.value = struct.pack('!f', field_value)
+
+		if self.type == DataField.Float64:
+			if not isinstance(field_value, double):
+				return RetVal(ErrBadValue)
+			
+			self.value = struct.pack('!d', field_value)
+
+		if self.type == DataField.Map:
+			if not isinstance(field_value, dict):
+				return RetVal(ErrBadValue)
+			
+			self.value = struct.pack('!H', field_value)
+
+		return RetVal()
