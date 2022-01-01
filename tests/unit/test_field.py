@@ -80,7 +80,24 @@ def test_get_flat_size():
 			f"{field_type_to_string(pair[0])} flat size mismatch: {pair[1]}"
 	
 
+def test_is_valid():
+	'''Tests DataField.is_valid()'''
+
+	df = DataField()
+	
+	assert not df.is_valid(), f"{funcname()}: DataField(empty) is_valid() failure"
+	
+	status = df.set(DataField.Int8, 100)
+	assert not status.error(), f"{funcname()}: set(Int8, 100) error: {status.error()}"
+	assert df.is_valid(), f"{funcname()}: DataField(Int8, 100) is_valid() failure"
+
+	status = df.set(DataField.String, 'baz')
+	assert not status.error(), f"{funcname()}: set(String, baz) error: {status.error()}"
+	assert df.is_valid(), f"{funcname()}: DataField(String, baz) is_valid() failure"
+
+
 if __name__ == '__main__':
 	test_check_range()
 	test_set()
 	test_get_flat_size()
+	test_is_valid()
