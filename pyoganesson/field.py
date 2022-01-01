@@ -56,7 +56,7 @@ class DataField:
 	# Message codes are strings, but they need to be different from the string type for clarity
 	MsgCode = 15
 
-	def __init__(self, field_type = DataField.Unknown, field_value = None):
+	def __init__(self, field_type = 0, field_value = None):
 		self.type = field_type
 		self.value = field_value
 	
