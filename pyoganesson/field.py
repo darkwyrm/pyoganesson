@@ -1,5 +1,6 @@
-from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange
 import struct
+
+from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange
 
 # The DataField structure is the foundation of the lower levels of Oganesson messaging and is used
 # for data serialization. The serialized format consists of a type code, a UInt16 length, and a
@@ -29,6 +30,31 @@ def check_uint_range(value: int, bitcount: int) -> bool:
 	
 	return 0 <= value <= (1 << bitcount) - 1
 
+def field_type_to_string(field_type: int):
+	'''Converts a field type to a string representing it'''
+
+	type_list = [
+		'Unknown',
+		'Int8',
+		'Int16',
+		'Int32',
+		'Int64',
+		'UInt8',
+		'UInt16',
+		'UInt32',
+		'UInt64',
+		'String',
+		'Bool',
+		'Float32',
+		'Float64',
+		'Byte',
+		'Map',
+		'MsgCode'
+	]
+	if 0 <= field_type < len(type_list):
+		return type_list[field_type]
+
+	return ''
 
 class DataField:
 	'''The DataField class manages the message type codes and associated data sizes'''
@@ -57,8 +83,10 @@ class DataField:
 	MsgCode = 15
 
 	def __init__(self, field_type = 0, field_value = None):
-		self.type = field_type
-		self.value = field_value
+		self.type = 0
+		self.value = None
+		if field_type != 0 and field_value is not None:
+			self.set(field_type, field_value)
 	
 	def get_flat_size(self) -> int:
 		'''get_flat_size() returns the number of bytes occupied by the field when serialized.
@@ -70,7 +98,7 @@ class DataField:
 			# Strings and Byte arrays are limited to 65535 bytes. Considering these messages are
 			# lightweight, that should be plenty.
 			value_length = min(65535, len(self.value))
-			return 3+len(value_length)
+			return 3+value_length
 		
 		if self.type in [DataField.Int8, DataField.UInt8, DataField.Bool]:
 			return 1+3
@@ -117,7 +145,7 @@ class DataField:
 		if self.type in [DataField.String, DataField.MsgCode]:
 			if not isinstance(field_value, str):
 				return RetVal(ErrBadValue)
-			self.value = field_value[:min(65535, len(field_value))]
+			self.value = field_value[:min(65535, len(field_value))].encode()
 		
 		if self.type == DataField.Byte:
 			if not isinstance(field_value, bytes):
@@ -209,7 +237,7 @@ class DataField:
 			self.value = struct.pack('!f', field_value)
 
 		if self.type == DataField.Float64:
-			if not isinstance(field_value, double):
+			if not isinstance(field_value, float):
 				return RetVal(ErrBadValue)
 			
 			self.value = struct.pack('!d', field_value)
