@@ -104,6 +104,18 @@ class FieldType:
 			return FieldType._typeinfo_lookup[self.value].size
 		return -1
 	
+	def get_type(self) -> any:
+		'''Returns the Python type for the field type or None on error'''
+		if self.is_valid_type():
+			return FieldType._typeinfo_lookup[self.value].type
+		return None
+	
+	def get_pack_code(self) -> any:
+		'''Returns the struct.pack() code for the field type or None on error'''
+		if self.is_valid_type():
+			return FieldType._typeinfo_lookup[self.value].packstr
+		return None
+	
 	def get_type_from_code(self, typecode: int) -> str:
 		'''Returns the name of the type indicated by the passed code or a negative number on error'''
 		if 0 < typecode < len(FieldType._typename_lookup):
@@ -170,108 +182,27 @@ class DataField:
 			if not isinstance(field_value, str):
 				return RetVal(ErrBadValue)
 			self.value = field_value[:min(65535, len(field_value))].encode()
+			return RetVal()
 		
 		if self.type == 'bytes':
 			if not isinstance(field_value, bytes):
 				return RetVal(ErrBadValue)
 			self.value = field_value[:min(65535, len(field_value))]
+			return RetVal()
 		
-		if self.type == 'int8':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_int_range(field_value, 8):
+		ft = FieldType(self.type)
+		if not isinstance(field_value, ft.get_type()):
+			return RetVal(ErrBadValue)
+		
+		if self.type.startswith('int'):
+			if not check_int_range(field_value, ft.get_type_size()*8):
 				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!b', field_value)
-
-		if self.type == 'uint8':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_uint_range(field_value, 8):
+		elif self.type.startswith('uint'):
+			if not check_uint_range(field_value, ft.get_type_size()*8):
 				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!B', field_value)
-
-		if self.type == 'int16':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_int_range(field_value, 16):
-				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!h', field_value)
-
-		if self.type == 'uint16':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_uint_range(field_value, 16):
-				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!H', field_value)
-
-		if self.type == 'int32':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_int_range(field_value, 32):
-				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!i', field_value)
-
-		if self.type == 'uint32':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_uint_range(field_value, 32):
-				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!I', field_value)
-
-		if self.type == 'int64':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_int_range(field_value, 64):
-				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!q', field_value)
-
-		if self.type == 'uint64':
-			if not isinstance(field_value, int):
-				return RetVal(ErrBadValue)
-			
-			if not check_uint_range(field_value, 64):
-				return RetVal(ErrOutOfRange)
-			
-			self.value = struct.pack('!Q', field_value)
-
-		if self.type == 'bool':
-			if not isinstance(field_value, bool):
-				return RetVal(ErrBadValue)
-			
-			self.value = struct.pack('!?', field_value)
-
-		if self.type == 'float32':
-			if not isinstance(field_value, float):
-				return RetVal(ErrBadValue)
-			
-			self.value = struct.pack('!f', field_value)
-
-		if self.type == 'float64':
-			if not isinstance(field_value, float):
-				return RetVal(ErrBadValue)
-			
-			self.value = struct.pack('!d', field_value)
-
-		if self.type == 'map':
-			if not isinstance(field_value, dict):
-				return RetVal(ErrBadValue)
-			
-			self.value = struct.pack('!H', field_value)
-
+		
+		self.value = struct.pack(ft.get_pack_code(), field_value)
+		
 		return RetVal()
 
 	def get(self) -> RetVal:
