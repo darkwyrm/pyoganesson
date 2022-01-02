@@ -67,6 +67,40 @@ def test_set():
 	assert df.value == b'foobar', f"{funcname()}: set('string', 'foobar') mismatch: {df.value}"
 
 
+def test_get():
+	'''Tests DataField.get()'''
+
+	df = DataField()
+
+	status = df.get()
+	assert status.error(), f"{funcname()}: get() failed to return an error"
+	
+	df.type = 'string'
+	df.value = b'foobar'
+	status = df.get()
+	assert 'type' in status and status['type'] == 'string', \
+		f"{funcname()}: get('string','foobar') type failure"
+	assert 'value' in status and status['value'] == 'foobar', \
+		f"{funcname()}: get('string','foobar') value failure"
+
+	df.type = 'bytes'
+	df.value = b'spam'
+	status = df.get()
+	assert 'type' in status and status['type'] == 'bytes', \
+		f"{funcname()}: get('bytes','spam') type failure"
+	assert 'value' in status and status['value'] == 'spam', \
+		f"{funcname()}: get('bytes','spam') value failure"
+
+	df.type = 'int8'
+	df.value = b'\x0a'
+	status = df.get()
+	assert 'type' in status and status['type'] == 'int8', \
+		f"{funcname()}: get('int8',10) type failure"
+	assert 'value' in status and status['value'] == 10, \
+		f"{funcname()}: get('int8',10) value failure"
+
+
+
 def test_get_flat_size():
 	'''Tests DataField.get_flat_size()'''
 
@@ -99,5 +133,6 @@ def test_is_valid():
 if __name__ == '__main__':
 	test_check_range()
 	test_set()
+	test_get()
 	test_get_flat_size()
 	test_is_valid()

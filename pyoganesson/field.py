@@ -212,6 +212,9 @@ class DataField:
 			return RetVal(ErrBadType)
 		
 		if self.type in ['string', 'msgcode', 'bytes']:
+			return RetVal().set_values({'type':self.type, 'value':self.value.decode()})
+		
+		if self.type == 'bytes':
 			return RetVal().set_values({'type':self.type, 'value':self.value})
 		
 		ft = FieldType(self.type)
@@ -220,4 +223,4 @@ class DataField:
 		except:
 			return RetVal(ErrBadValue)
 				
-		return RetVal().set_values({'type':self.type, 'value':out})
+		return RetVal().set_values({'type':self.type, 'value':out[0]})
