@@ -207,3 +207,17 @@ class DataField:
 
 	def get(self) -> RetVal:
 		'''Returns the value of the DataField object'''
+
+		if self.get_flat_size() < 0:
+			return RetVal(ErrBadType)
+		
+		if self.type in ['string', 'msgcode', 'bytes']:
+			return RetVal().set_values({'type':self.type, 'value':self.value})
+		
+		ft = FieldType(self.type)
+		try:
+			out = struct.unpack(ft.get_pack_code(), self.value)
+		except:
+			return RetVal(ErrBadValue)
+				
+		return RetVal().set_values({'type':self.type, 'value':out})
