@@ -3,7 +3,7 @@ import struct
 from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange
 
 # The DataField structure is the foundation of the lower levels of Oganesson messaging and is used
-# for data serialization. The serialized format consists of a type code, a UInt16 length, and a
+# for data serialization. The serialized format consists of a type code, a 'uint16' length, and a
 # byte array of up to 64K.
 
 def check_int_range(value: int, bitcount: int) -> bool:
@@ -30,64 +30,94 @@ def check_uint_range(value: int, bitcount: int) -> bool:
 	
 	return 0 <= value <= (1 << bitcount) - 1
 
+class FieldTypeInfo:
+	'''FieldTypeInfo is just a structure to house information about a specific FieldType type'''
+	
+	def __init__(self, index: int, name: str, pack_string: str, bytesize: int, type_class: any):
+		self.index = index
+		self.name = name
+		self.size = bytesize
+		self.packstr = pack_string
+		self.type = type_class
 
-def field_type_to_string(field_type: int):
-	'''Converts a field type to a string representing it'''
 
-	type_list = [
-		'Unknown',
-		'Int8',
-		'Int16',
-		'Int32',
-		'Int64',
-		'UInt8',
-		'UInt16',
-		'UInt32',
-		'UInt64',
-		'String',
-		'Bool',
-		'Float32',
-		'Float64',
-		'Byte',
-		'Map',
-		'MsgCode'
+class FieldType:
+	'''The FieldType class is for handling the different types of DataField data'''
+	_typeinfo_lookup = {
+		'unknown' : FieldTypeInfo(0, 'unknown', None, 0, None),
+		'int8' : FieldTypeInfo(1, 'int8', '!b', 1, int),
+		'int16' : FieldTypeInfo(2, 'int16','!h', 2, int),
+		'int32' : FieldTypeInfo(3, 'int32', '!i', 4, int),
+		'int64' : FieldTypeInfo(4, 'int64', '!q', 8, int),
+		'uint8' : FieldTypeInfo(5, 'uint8', '!B', 1, int),
+		'uint16' : FieldTypeInfo(6, 'uint16', '!H', 2, int),
+		'uint32' : FieldTypeInfo(7, 'uint32', '!I', 4, int),
+		'uint64' : FieldTypeInfo(8, 'uint64', '!Q', 8, int),
+		'string' : FieldTypeInfo(9, 'string', None, 0, str),
+		'bool' : FieldTypeInfo(10, 'bool', '!?', 1, bool),
+		'float32' : FieldTypeInfo(11, 'float32', '!f', 4, int),
+		'float64' : FieldTypeInfo(12, 'float64', '!d', 8, int),
+		'bytes' : FieldTypeInfo(13, 'bytes', None, 0, bytes),
+		
+		# 'map's are just a series of DataFields. The payloads themselves are 'uint16''s
+		# containing the number of items to follow that belong to the container. The actual item
+		# count is half of the number of actual DataFields to follow -- a DataField map item is a 
+		# string field paired with another field. 
+		'map' : FieldTypeInfo(14, 'map', None, 2, dict),
+		
+		# Message codes are strings, but they need to be different from the string type for clarity
+		'msgcode' : FieldTypeInfo(15, 'msgcode', None, 0, str),
+	}
+
+	# Lookup table to convert msg type codes to their string names
+	_typename_lookup = [
+		'unknown',
+		'int8',
+		'int16',
+		'int32',
+		'int64',
+		'uint8',
+		'uint16',
+		'uint32',
+		'uint64',
+		'string',
+		'bool',
+		'float32',
+		'float64',
+		'bytes',
+		'map',
+		'msgcode'
 	]
-	if 0 <= field_type < len(type_list):
-		return type_list[field_type]
 
-	return ''
+	def __init__(self, field_type = 'unknown'):
+		self.value = 'unknown'
+		if field_type != 'unknown' and field_type in FieldType._typeinfo_lookup:
+			self.value = field_type
+	
+	def is_valid_type(self):
+		'''Returns true if the string passed identifies a valid field type descriptor'''
+		return self.value != 'unknown' and self.value in FieldType._typeinfo_lookup
+	
+	def get_type_size(self) -> int:
+		'''Returns the number of bytes occupied by the data type or a negative number on error'''
+		if self.is_valid_type():
+			return FieldType._typeinfo_lookup[self.value].size
+		return -1
+	
+	def get_type_from_code(self, typecode: int) -> str:
+		'''Returns the name of the type indicated by the passed code or a negative number on error'''
+		if 0 < typecode < len(FieldType._typename_lookup):
+			return FieldType._typename_lookup[typecode]
+		return -1
 
 
 class DataField:
 	'''The DataField class manages the message type codes and associated data sizes'''
-	Unknown = 0
-	Int8 = 1
-	Int16 = 2
-	Int32 = 3
-	Int64 = 4
-	UInt8 = 5
-	UInt16 = 6
-	UInt32 = 7
-	UInt64 = 8
-	String = 9
-	Bool = 10
-	Float32 = 11
-	Float64 = 12
-	Byte = 13
-	
-	# Maps are just a series of DataFields. The payloads themselves are UInt16's
-	# containing the number of items to follow that belong to the container. The actual item
-	# count is half of the number of actual DataFields to follow -- a DataField map item is a 
-	# string field paired with another field. 
-	Map = 14
 
-	# Message codes are strings, but they need to be different from the string type for clarity
-	MsgCode = 15
-
-	def __init__(self, field_type = 0, field_value = None):
-		self.type = 0
+	def __init__(self, field_type = '', field_value = None):
+		self.type = ''
 		self.value = None
-		if field_type != 0 and field_value is not None:
+		if field_type != '' and field_value is not None:
 			self.set(field_type, field_value)
 	
 	def get_flat_size(self) -> int:
@@ -96,25 +126,17 @@ class DataField:
 		A negative value is returned if there is an error
 		'''
 
-		if self.type in [DataField.Byte, DataField.String, DataField.MsgCode]:
+		ft = FieldType(self.type)
+		if not ft.is_valid_type():
+			return -1
+		
+		if self.type in ['bytes', 'string', 'msgcode']:
 			# Strings and Byte arrays are limited to 65535 bytes. Considering these messages are
 			# lightweight, that should be plenty.
 			value_length = min(65535, len(self.value))
 			return 3+value_length
-		
-		if self.type in [DataField.Int8, DataField.UInt8, DataField.Bool]:
-			return 1+3
-		
-		if self.type in [DataField.Int16, DataField.UInt16, DataField.Map]:
-			return 2+3
-		
-		if self.type in [DataField.Int32, DataField.UInt32, DataField.Float32]:
-			return 4+3
-		
-		if self.type in [DataField.Int64, DataField.UInt64, DataField.Float64]:
-			return 8+3
-		
-		return -1
+
+		return ft.get_type_size()+3
 
 	def is_valid(self) -> bool:
 		'''Returns true if the specified value is a valid DataField type code.
@@ -144,17 +166,17 @@ class DataField:
 		if isinstance(field_value, list):
 			return RetVal(ErrBadValue)
 
-		if self.type in [DataField.String, DataField.MsgCode]:
+		if self.type in ['string', 'msgcode']:
 			if not isinstance(field_value, str):
 				return RetVal(ErrBadValue)
 			self.value = field_value[:min(65535, len(field_value))].encode()
 		
-		if self.type == DataField.Byte:
+		if self.type == 'bytes':
 			if not isinstance(field_value, bytes):
 				return RetVal(ErrBadValue)
 			self.value = field_value[:min(65535, len(field_value))]
-
-		if self.type == DataField.Int8:
+		
+		if self.type == 'int8':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -163,7 +185,7 @@ class DataField:
 			
 			self.value = struct.pack('!b', field_value)
 
-		if self.type == DataField.UInt8:
+		if self.type == 'uint8':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -172,7 +194,7 @@ class DataField:
 			
 			self.value = struct.pack('!B', field_value)
 
-		if self.type == DataField.Int16:
+		if self.type == 'int16':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -181,7 +203,7 @@ class DataField:
 			
 			self.value = struct.pack('!h', field_value)
 
-		if self.type == DataField.UInt16:
+		if self.type == 'uint16':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -190,7 +212,7 @@ class DataField:
 			
 			self.value = struct.pack('!H', field_value)
 
-		if self.type == DataField.Int32:
+		if self.type == 'int32':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -199,7 +221,7 @@ class DataField:
 			
 			self.value = struct.pack('!i', field_value)
 
-		if self.type == DataField.UInt32:
+		if self.type == 'uint32':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -208,7 +230,7 @@ class DataField:
 			
 			self.value = struct.pack('!I', field_value)
 
-		if self.type == DataField.Int64:
+		if self.type == 'int64':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -217,7 +239,7 @@ class DataField:
 			
 			self.value = struct.pack('!q', field_value)
 
-		if self.type == DataField.UInt64:
+		if self.type == 'uint64':
 			if not isinstance(field_value, int):
 				return RetVal(ErrBadValue)
 			
@@ -226,28 +248,31 @@ class DataField:
 			
 			self.value = struct.pack('!Q', field_value)
 
-		if self.type == DataField.Bool:
+		if self.type == 'bool':
 			if not isinstance(field_value, bool):
 				return RetVal(ErrBadValue)
 			
 			self.value = struct.pack('!?', field_value)
 
-		if self.type == DataField.Float32:
+		if self.type == 'float32':
 			if not isinstance(field_value, float):
 				return RetVal(ErrBadValue)
 			
 			self.value = struct.pack('!f', field_value)
 
-		if self.type == DataField.Float64:
+		if self.type == 'float64':
 			if not isinstance(field_value, float):
 				return RetVal(ErrBadValue)
 			
 			self.value = struct.pack('!d', field_value)
 
-		if self.type == DataField.Map:
+		if self.type == 'map':
 			if not isinstance(field_value, dict):
 				return RetVal(ErrBadValue)
 			
 			self.value = struct.pack('!H', field_value)
 
 		return RetVal()
+
+	def get(self) -> RetVal:
+		'''Returns the value of the DataField object'''

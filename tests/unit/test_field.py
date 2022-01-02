@@ -1,6 +1,6 @@
 import inspect
 
-from pyoganesson.field import DataField, check_int_range, check_uint_range, field_type_to_string
+from pyoganesson.field import DataField, check_int_range, check_uint_range
 
 def funcname() -> str:
 	'''Returns the name of the current function'''
@@ -58,13 +58,13 @@ def test_set():
 	'''Tests DataField.set()'''
 
 	df = DataField()
-	status = df.set(DataField.UInt16, 1000)
-	assert not status.error(), f"{funcname()}: set(UInt16, 1000) error: {status.error()}"
-	assert df.value == b'\x03\xe8', f"{funcname()}: set(UInt16, 1000) mismatch: {df.value}"
+	status = df.set('uint16', 1000)
+	assert not status.error(), f"{funcname()}: set('uint16', 1000) error: {status.error()}"
+	assert df.value == b'\x03\xe8', f"{funcname()}: set('uint16', 1000) mismatch: {df.value}"
 
-	status = df.set(DataField.String, 'foobar')
-	assert not status.error(), f"{funcname()}: set(UInt16, 1000) failed"
-	assert df.value == b'foobar', f"{funcname()}: set(String, 'foobar') mismatch: {df.value}"
+	status = df.set('string', 'foobar')
+	assert not status.error(), f"{funcname()}: set('uint16', 1000) failed"
+	assert df.value == b'foobar', f"{funcname()}: set('string', 'foobar') mismatch: {df.value}"
 
 
 def test_get_flat_size():
@@ -72,12 +72,12 @@ def test_get_flat_size():
 
 	df = DataField()
 	
-	type_tests = [ (DataField.Int8, 4), (DataField.Int16, 5), (DataField.Int32, 7), 
-		(DataField.Int64, 11), (DataField.Float32, 7), (DataField.Float64, 11) ]
+	type_tests = [ ('int8', 4), ('int16', 5), ('int32', 7), 
+		('int64', 11), ('float32', 7), ('float64', 11) ]
 	for pair in type_tests:
 		df.type = pair[0]
 		assert df.get_flat_size() == pair[1], \
-			f"{field_type_to_string(pair[0])} flat size mismatch: {pair[1]}"
+			f"{pair[0]} flat size mismatch: {pair[1]}"
 	
 
 def test_is_valid():
@@ -87,13 +87,13 @@ def test_is_valid():
 	
 	assert not df.is_valid(), f"{funcname()}: DataField(empty) is_valid() failure"
 	
-	status = df.set(DataField.Int8, 100)
-	assert not status.error(), f"{funcname()}: set(Int8, 100) error: {status.error()}"
-	assert df.is_valid(), f"{funcname()}: DataField(Int8, 100) is_valid() failure"
+	status = df.set('int8', 100)
+	assert not status.error(), f"{funcname()}: set('int8', 100) error: {status.error()}"
+	assert df.is_valid(), f"{funcname()}: DataField('int8', 100) is_valid() failure"
 
-	status = df.set(DataField.String, 'baz')
-	assert not status.error(), f"{funcname()}: set(String, baz) error: {status.error()}"
-	assert df.is_valid(), f"{funcname()}: DataField(String, baz) is_valid() failure"
+	status = df.set('string', 'baz')
+	assert not status.error(), f"{funcname()}: set('string', baz) error: {status.error()}"
+	assert df.is_valid(), f"{funcname()}: DataField('string', baz) is_valid() failure"
 
 
 if __name__ == '__main__':
