@@ -1,6 +1,6 @@
 import struct
 
-from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange
+from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange, ErrBadData
 
 # The DataField structure is the foundation of the lower levels of Oganesson messaging and is used
 # for data serialization. The serialized format consists of a type code, a 'uint16' length, and a
@@ -98,11 +98,11 @@ class FieldType:
 		'''Returns true if the string passed identifies a valid field type descriptor'''
 		return self.value != 'unknown' and self.value in FieldType._typeinfo_lookup
 	
-	def get_type_size(self) -> int:
-		'''Returns the number of bytes occupied by the data type or a negative number on error'''
+	def get_pack_code(self) -> any:
+		'''Returns the struct.pack() code for the field type or None on error'''
 		if self.is_valid_type():
-			return FieldType._typeinfo_lookup[self.value].size
-		return -1
+			return FieldType._typeinfo_lookup[self.value].packstr
+		return None
 	
 	def get_type(self) -> any:
 		'''Returns the Python type for the field type or None on error'''
@@ -110,17 +110,30 @@ class FieldType:
 			return FieldType._typeinfo_lookup[self.value].type
 		return None
 	
-	def get_pack_code(self) -> any:
-		'''Returns the struct.pack() code for the field type or None on error'''
+	def get_type_code(self) -> int:
+		'''Returns the number of bytes occupied by the data type or a negative number on error'''
 		if self.is_valid_type():
-			return FieldType._typeinfo_lookup[self.value].packstr
-		return None
+			return FieldType._typeinfo_lookup[self.value].index
+		return -1
+	
+	def get_type_size(self) -> int:
+		'''Returns the number of bytes occupied by the data type or a negative number on error'''
+		if self.is_valid_type():
+			return FieldType._typeinfo_lookup[self.value].size
+		return -1
 	
 	def get_type_from_code(self, typecode: int) -> str:
 		'''Returns the name of the type indicated by the passed code or a negative number on error'''
 		if 0 < typecode < len(FieldType._typename_lookup):
 			return FieldType._typename_lookup[typecode]
 		return -1
+	
+	def set_from_code(self, typecode: int) -> bool:
+		'''Returns the name of the type indicated by the passed code or a negative number on error'''
+		if 0 < typecode < len(FieldType._typename_lookup):
+			self.value = FieldType._typename_lookup[typecode]
+			return True
+		return False
 
 
 class DataField:
@@ -211,7 +224,7 @@ class DataField:
 		if self.get_flat_size() < 0:
 			return RetVal(ErrBadType)
 		
-		if self.type in ['string', 'msgcode', 'bytes']:
+		if self.type in ['string', 'msgcode']:
 			return RetVal().set_values({'type':self.type, 'value':self.value.decode()})
 		
 		if self.type == 'bytes':
@@ -224,3 +237,52 @@ class DataField:
 			return RetVal(ErrBadValue)
 				
 		return RetVal().set_values({'type':self.type, 'value':out[0]})
+
+	def flatten(self) -> bytes:
+		'''Returns a byte array representing the data field'''
+		
+		return struct.pack('!B', FieldType(self.type).get_type_code()) + \
+			struct.pack('!H', len(self.value)) + self.value
+
+	def unflatten(self, b: bytes) -> RetVal:
+		'''Sets the value of the field from the given byte array'''
+
+		if len(b) < 4:
+			return RetVal(ErrBadData, 'byte array too short')
+		
+		try:
+			type_code = struct.unpack('!B', b[0])
+		except:
+			return RetVal(ErrBadType)
+		
+		ft = FieldType()
+		if not ft.set_from_code(type_code):
+			return RetVal(ErrBadType)
+		
+		try:
+			value_length = struct.unpack('!H', b[1:3])
+		except:
+			return RetVal(ErrBadValue, 'bad value length')
+
+		if len(b[3:]) != value_length:
+			return RetVal('ErrSize', 'mismatch between size indicator and data length')
+
+		# Make sure that the data unpacks properly before assigning values to the instance
+
+		if self.type in ['string', 'msgcode']:
+			try:
+				b[3:].decode()
+			except:
+				return RetVal(ErrBadValue)
+		else:
+			# This check is needed to handle byte array fields
+			if ft.get_pack_code():
+				try:
+					struct.unpack(ft.get_pack_code(), b[3:])
+				except:
+					return RetVal(ErrBadValue)
+
+		self.type = ft.value
+		self.value = b[3:]
+
+		return RetVal()
