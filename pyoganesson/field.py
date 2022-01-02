@@ -63,7 +63,7 @@ class FieldType:
 		# containing the number of items to follow that belong to the container. The actual item
 		# count is half of the number of actual DataFields to follow -- a DataField map item is a 
 		# string field paired with another field. 
-		'map' : FieldTypeInfo(14, 'map', None, 2, dict),
+		'map' : FieldTypeInfo(14, 'map', '!H', 2, dict),
 		
 		# Message codes are strings, but they need to be different from the string type for clarity
 		'msgcode' : FieldTypeInfo(15, 'msgcode', None, 0, str),
@@ -204,6 +204,13 @@ class DataField:
 			return RetVal()
 		
 		ft = FieldType(self.type)
+		
+		if self.type == 'map':
+			if not isinstance(field_value, dict):
+				return RetVal(ErrBadValue)
+			self.value = struct.pack(ft.get_pack_code(), len(field_value))
+			return RetVal()
+		
 		if not isinstance(field_value, ft.get_type()):
 			return RetVal(ErrBadValue)
 		
@@ -251,7 +258,8 @@ class DataField:
 			return RetVal(ErrBadData, 'byte array too short')
 		
 		try:
-			type_code = struct.unpack('!B', b[0])
+			# It's really strange IMO, but b[0] is an int, but b[1:3] is a byte string. *shrug*
+			type_code = struct.unpack('!B', b[0].to_bytes(1, 'big'))[0]
 		except:
 			return RetVal(ErrBadType)
 		
@@ -260,7 +268,7 @@ class DataField:
 			return RetVal(ErrBadType)
 		
 		try:
-			value_length = struct.unpack('!H', b[1:3])
+			value_length = struct.unpack('!H', b[1:3])[0]
 		except:
 			return RetVal(ErrBadValue, 'bad value length')
 
@@ -269,7 +277,7 @@ class DataField:
 
 		# Make sure that the data unpacks properly before assigning values to the instance
 
-		if self.type in ['string', 'msgcode']:
+		if ft.value in ['string', 'msgcode']:
 			try:
 				b[3:].decode()
 			except:

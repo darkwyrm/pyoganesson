@@ -66,6 +66,11 @@ def test_set():
 	assert not status.error(), f"{funcname()}: set('uint16', 1000) failed"
 	assert df.value == b'foobar', f"{funcname()}: set('string', 'foobar') mismatch: {df.value}"
 
+	status = df.set('map', {1:'1',2:'2'})
+	assert not status.error(), f"{funcname()}: set('map', {{1:'1',2:'2'}}) failed"
+	assert df.value == b'\x00\x02', \
+		f"{funcname()}: set('map', {{1:'1',2:'2'}}) mismatch: {df.value}"
+
 
 def test_get():
 	'''Tests DataField.get()'''
@@ -88,7 +93,7 @@ def test_get():
 	status = df.get()
 	assert 'type' in status and status['type'] == 'bytes', \
 		f"{funcname()}: get('bytes','spam') type failure"
-	assert 'value' in status and status['value'] == 'spam', \
+	assert 'value' in status and status['value'] == b'spam', \
 		f"{funcname()}: get('bytes','spam') value failure"
 
 	df.type = 'int8'
@@ -98,7 +103,6 @@ def test_get():
 		f"{funcname()}: get('int8',10) type failure"
 	assert 'value' in status and status['value'] == 10, \
 		f"{funcname()}: get('int8',10) value failure"
-
 
 
 def test_get_flat_size():
@@ -130,9 +134,56 @@ def test_is_valid():
 	assert df.is_valid(), f"{funcname()}: DataField('string', baz) is_valid() failure"
 
 
+def test_flatten_unflatten():
+	'''Tests DataField.flatten()/unflatten()'''
+
+	df = DataField()
+	status = df.set('uint16', 1000)
+	assert not status.error(), f"{funcname()}: set('uint16', 1000) error: {status.error()}"
+	flatvalue = df.flatten()
+	assert flatvalue == b'\x06\x00\x02\x03\xe8', \
+		f"{funcname()}: flatten('uint16', 1000) mismatch: {flatvalue}"
+	
+	status = df.set('string', 'foobar')
+	assert not status.error(), f"{funcname()}: set('string', foobar) error: {status.error()}"
+	flatvalue = df.flatten()
+	assert flatvalue == b'\x09\x00\x06foobar', \
+		f"{funcname()}: flatten('string', 'foobar') mismatch: {flatvalue}"
+
+	status = df.set('bytes', b'spam')
+	assert not status.error(), f"{funcname()}: set('bytes', b'spam') error: {status.error()}"
+	flatvalue = df.flatten()
+	assert flatvalue == b'\x0d\x00\x04spam', \
+		f"{funcname()}: flatten('bytes', b'spam') mismatch: {flatvalue}"
+
+	status = df.set('map', {1:'1',2:'2'})
+	assert not status.error(), \
+		f"{funcname()}: set('map', {{1:'1',2:'2'}}) error: {status.error()}"
+	flatvalue = df.flatten()
+	assert flatvalue == b'\x0e\x00\x02\x00\x02', \
+		f"{funcname()}: flatten('map', {{1:'1',2:'2'}}) mismatch: {flatvalue}"
+
+	df.type = 'unknown'
+	df.value = None
+	status = df.unflatten(b'\x09\x00\x06foobar')
+	assert not status.error(), \
+		f"{funcname()}: error unflattening(b'\x09\x00\x06foobar'): {status.error()}"
+	assert df.type == 'string' and df.value == b'foobar', \
+		f"{funcname()}: unflatten(b'\x09\x00\x06foobar') mismatch: {df.value}"
+
+	df.type = 'unknown'
+	df.value = None
+	status = df.unflatten(b'\x06\x00\x02\x03\xe8')
+	assert not status.error(), \
+		f"{funcname()}: error unflattening(b'\x06\x00\x02\x03\xe8'): {status.error()}"
+	assert df.type == 'uint16' and df.value == b'\x03\xe8', \
+		f"{funcname()}: unflatten(b'\x06\x00\x02\x03\xe8') mismatch: {df.value}"
+
+
 if __name__ == '__main__':
 	test_check_range()
 	test_set()
 	test_get()
 	test_get_flat_size()
 	test_is_valid()
+	test_flatten_unflatten()
