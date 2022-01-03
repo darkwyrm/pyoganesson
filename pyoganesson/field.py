@@ -31,6 +31,48 @@ def check_uint_range(value: int, bitcount: int) -> bool:
 	
 	return 0 <= value <= (1 << bitcount) - 1
 
+
+def pack_encode(value: str, _) -> bytes:
+	'''Value serialization function which converts strings to binary arrays.
+	
+	To ensure compatibility with the other pack functions, it accepts a format string which is 
+	summarily ignored.'''
+	if not isinstance(value, str):
+		raise TypeError('pack_encode() requires a string value')
+
+
+def pack_length(value: any, _) -> bytes:
+	'''Value serialization function which flattens the value to its length.
+	
+	To ensure compatibility with the other pack functions, it accepts a format string which is 
+	summarily ignored.'''
+	if not isinstance(value, map) and not isinstance(value, list) and not isinstance(value, tuple):
+		raise TypeError('pack_length() requires a container')
+	return struct.pack('!H', len(value))
+
+
+def pack_stub(value: bytes, _) -> bytes:
+	'''Value serialization function which returns what it is given, intended for binary arrays.
+	
+	To ensure compatibility with the other pack functions, it accepts a format string which is 
+	summarily ignored.'''
+	if not isinstance(value, bytes):
+		raise TypeError('pack_stub() requires a byte array')
+	
+	return value
+
+
+def pack_pack(value: any, format: str) -> bytes:
+	'''Value serialization function which returns what it is given, intended for binary arrays.
+	
+	The format string required is the one utilized by struct.pack()'''
+	return struct.pack(format, value)
+
+
+# TODO: implement unpacker functions
+
+# TODO: place packer/unpacker function pairs into some constants
+
 class FieldTypeInfo:
 	'''FieldTypeInfo is just a structure to house information about a specific FieldType type'''
 	
@@ -42,6 +84,7 @@ class FieldTypeInfo:
 		self.type = type_class
 
 
+# TODO: Retool FieldType to remove the replace the name parameter with packer/unpacker pairs
 class FieldType:
 	'''The FieldType class is for handling the different types of DataField data'''
 	_typeinfo_lookup = {
@@ -68,6 +111,11 @@ class FieldType:
 		
 		# Message codes are strings, but they need to be different from the string type for clarity
 		'msgcode' : FieldTypeInfo(15, 'msgcode', None, 0, str),
+
+		# TODO: Add OgMessage type code info
+
+		# WirePacket type codes
+		# 'singlepacket' : FieldTypeInfo(21, 'singlepacket', , bytesize, type_class)
 	}
 
 	# Lookup table to convert msg type codes to their string names
