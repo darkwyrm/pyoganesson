@@ -39,6 +39,19 @@ def pack_encode(value: str, _) -> bytes:
 	summarily ignored.'''
 	if not isinstance(value, str):
 		raise TypeError('pack_encode() requires a string value')
+	
+	return value.encode()
+
+
+def unpack_decode(value: str, _) -> bytes:
+	'''Value deserialization function which converts binary arrays to strings.
+	
+	To ensure compatibility with the other pack functions, it accepts a format string which is 
+	summarily ignored.'''
+	if not isinstance(value, bytes):
+		raise TypeError('unpack_decode() requires a binary string')
+
+	return value.decode()
 
 
 def pack_length(value: any, _) -> bytes:
@@ -48,7 +61,19 @@ def pack_length(value: any, _) -> bytes:
 	summarily ignored.'''
 	if not isinstance(value, map) and not isinstance(value, list) and not isinstance(value, tuple):
 		raise TypeError('pack_length() requires a container')
+	
 	return struct.pack('!H', len(value))
+
+
+def unpack_length(value: any, _) -> bytes:
+	'''Value deserialization function which unflattens value created by pack_length.
+	
+	To ensure compatibility with the other pack functions, it accepts a format string which is 
+	summarily ignored.'''
+	if not isinstance(value, bytes):
+		raise TypeError('unpack_length() requires a binary string')
+	
+	return struct.unpack('!H', value)
 
 
 def pack_stub(value: bytes, _) -> bytes:
@@ -62,14 +87,30 @@ def pack_stub(value: bytes, _) -> bytes:
 	return value
 
 
+def unpack_stub(value: bytes, _) -> bytes:
+	'''Value deserialization function which returns what it is given, intended for binary arrays.
+	
+	To ensure compatibility with the other pack functions, it accepts a format string which is 
+	summarily ignored.'''
+	if not isinstance(value, bytes):
+		raise TypeError('unpack_stub() requires a byte array')
+	
+	return value
+
+
 def pack_pack(value: any, format: str) -> bytes:
-	'''Value serialization function which returns what it is given, intended for binary arrays.
+	'''Value serialization function which applies struct.pack, given a value and a format string.
 	
 	The format string required is the one utilized by struct.pack()'''
 	return struct.pack(format, value)
 
 
-# TODO: implement unpacker functions
+def unpack_unpack(value: any, format: str) -> bytes:
+	'''Value deserialization function which applies struct.unpack, given a value and a format string.
+	
+	The format string required is the one utilized by struct.unpack()'''
+	return struct.unpack(format, value)
+
 
 # TODO: place packer/unpacker function pairs into some constants
 
