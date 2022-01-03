@@ -112,46 +112,51 @@ def unpack_unpack(value: any, format: str) -> bytes:
 	return struct.unpack(format, value)
 
 
-# TODO: place packer/unpacker function pairs into some constants
+# These constants pair up the packing and unpacking methods into a nice, neat little package
+PackMethodsEncode = (pack_encode, unpack_decode)
+PackMethodsLength = (pack_length, unpack_length)
+PackMethodsStub = (pack_stub, unpack_stub)
+PackMethodsPack = (pack_pack, unpack_unpack)
+
 
 class FieldTypeInfo:
 	'''FieldTypeInfo is just a structure to house information about a specific FieldType type'''
 	
-	def __init__(self, index: int, name: str, pack_string: str, bytesize: int, type_class: any):
+	def __init__(self, index: int, packer: tuple, pack_string: str, bytesize: int, type_class: any):
 		self.index = index
-		self.name = name
+		self.pack = packer[0]
+		self.unpack = packer[1]
 		self.size = bytesize
 		self.packstr = pack_string
 		self.type = type_class
 
 
-# TODO: Retool FieldType to remove the replace the name parameter with packer/unpacker pairs
 class FieldType:
 	'''The FieldType class is for handling the different types of DataField data'''
 	_typeinfo_lookup = {
-		'unknown' : FieldTypeInfo(0, 'unknown', None, 0, None),
-		'int8' : FieldTypeInfo(1, 'int8', '!b', 1, int),
-		'int16' : FieldTypeInfo(2, 'int16','!h', 2, int),
-		'int32' : FieldTypeInfo(3, 'int32', '!i', 4, int),
-		'int64' : FieldTypeInfo(4, 'int64', '!q', 8, int),
-		'uint8' : FieldTypeInfo(5, 'uint8', '!B', 1, int),
-		'uint16' : FieldTypeInfo(6, 'uint16', '!H', 2, int),
-		'uint32' : FieldTypeInfo(7, 'uint32', '!I', 4, int),
-		'uint64' : FieldTypeInfo(8, 'uint64', '!Q', 8, int),
-		'string' : FieldTypeInfo(9, 'string', None, 0, str),
-		'bool' : FieldTypeInfo(10, 'bool', '!?', 1, bool),
-		'float32' : FieldTypeInfo(11, 'float32', '!f', 4, int),
-		'float64' : FieldTypeInfo(12, 'float64', '!d', 8, int),
-		'bytes' : FieldTypeInfo(13, 'bytes', None, 0, bytes),
+		'unknown' : FieldTypeInfo(0, (None, None), None, 0, None),
+		'int8' : FieldTypeInfo(1, PackMethodsPack, '!b', 1, int),
+		'int16' : FieldTypeInfo(2, PackMethodsPack,'!h', 2, int),
+		'int32' : FieldTypeInfo(3, PackMethodsPack, '!i', 4, int),
+		'int64' : FieldTypeInfo(4, PackMethodsPack, '!q', 8, int),
+		'uint8' : FieldTypeInfo(5, PackMethodsPack, '!B', 1, int),
+		'uint16' : FieldTypeInfo(6, PackMethodsPack, '!H', 2, int),
+		'uint32' : FieldTypeInfo(7, PackMethodsPack, '!I', 4, int),
+		'uint64' : FieldTypeInfo(8, PackMethodsPack, '!Q', 8, int),
+		'string' : FieldTypeInfo(9, PackMethodsEncode, None, 0, str),
+		'bool' : FieldTypeInfo(10, PackMethodsPack, '!?', 1, bool),
+		'float32' : FieldTypeInfo(11, PackMethodsPack, '!f', 4, int),
+		'float64' : FieldTypeInfo(12, PackMethodsPack, '!d', 8, int),
+		'bytes' : FieldTypeInfo(13, PackMethodsStub, None, 0, bytes),
 		
 		# 'map's are just a series of DataFields. The payloads themselves are 'uint16''s
 		# containing the number of items to follow that belong to the container. The actual item
 		# count is half of the number of actual DataFields to follow -- a DataField map item is a 
 		# string field paired with another field. 
-		'map' : FieldTypeInfo(14, 'map', '!H', 2, dict),
+		'map' : FieldTypeInfo(14, PackMethodsLength, '!H', 2, dict),
 		
 		# Message codes are strings, but they need to be different from the string type for clarity
-		'msgcode' : FieldTypeInfo(15, 'msgcode', None, 0, str),
+		'msgcode' : FieldTypeInfo(15, PackMethodsEncode, None, 0, str),
 
 		# TODO: Add OgMessage type code info
 
@@ -224,6 +229,20 @@ class FieldType:
 			self.value = FieldType._typename_lookup[typecode]
 			return True
 		return False
+	
+	def pack(self, value: any) -> bytes:
+		'''Runs the pack method for the type'''
+		packer = FieldType._typeinfo_lookup[self.value].pack
+		if not packer:
+			return None
+		return packer(value, self.get_pack_code())
+
+	def unpack(self, value: any) -> bytes:
+		'''Runs the unpack method for the type'''
+		unpacker = FieldType._typeinfo_lookup[self.value].unpack
+		if not unpacker:
+			return None
+		return unpacker(value, self.get_pack_code())
 
 
 class DataField:
@@ -281,6 +300,7 @@ class DataField:
 		if isinstance(field_value, list):
 			return RetVal(ErrBadValue)
 
+		# TODO: Convert this code to use the packer methods of FieldType
 		if self.type in ['string', 'msgcode']:
 			if not isinstance(field_value, str):
 				return RetVal(ErrBadValue)
@@ -298,7 +318,7 @@ class DataField:
 		if self.type == 'map':
 			if not isinstance(field_value, dict):
 				return RetVal(ErrBadValue)
-			self.value = struct.pack(ft.get_pack_code(), len(field_value))
+			self.value = ft.pack(field_value)
 			return RetVal()
 		
 		if not isinstance(field_value, ft.get_type()):
@@ -311,7 +331,7 @@ class DataField:
 			if not check_uint_range(field_value, ft.get_type_size()*8):
 				return RetVal(ErrOutOfRange)
 		
-		self.value = struct.pack(ft.get_pack_code(), field_value)
+		self.value = ft.pack(field_value)
 		
 		return RetVal()
 
@@ -329,7 +349,7 @@ class DataField:
 		
 		ft = FieldType(self.type)
 		try:
-			out = struct.unpack(ft.get_pack_code(), self.value)
+			out = ft.unpack(self.value)
 		except:
 			return RetVal(ErrBadValue)
 				
@@ -367,18 +387,8 @@ class DataField:
 
 		# Make sure that the data unpacks properly before assigning values to the instance
 
-		if ft.value in ['string', 'msgcode']:
-			try:
-				b[3:].decode()
-			except:
-				return RetVal(ErrBadValue)
-		else:
-			# This check is needed to handle byte array fields
-			if ft.get_pack_code():
-				try:
-					struct.unpack(ft.get_pack_code(), b[3:])
-				except:
-					return RetVal(ErrBadValue)
+		if ft.unpack(b[3:]) == None:
+			return RetVal(ErrBadValue)
 
 		self.type = ft.value
 		self.value = b[3:]
