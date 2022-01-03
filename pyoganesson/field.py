@@ -59,7 +59,7 @@ def pack_length(value: any, _) -> bytes:
 	
 	To ensure compatibility with the other pack functions, it accepts a format string which is 
 	summarily ignored.'''
-	if not isinstance(value, map) and not isinstance(value, list) and not isinstance(value, tuple):
+	if not isinstance(value, dict) and not isinstance(value, list) and not isinstance(value, tuple):
 		raise TypeError('pack_length() requires a container')
 	
 	return struct.pack('!H', len(value))
@@ -98,18 +98,18 @@ def unpack_stub(value: bytes, _) -> bytes:
 	return value
 
 
-def pack_pack(value: any, format: str) -> bytes:
+def pack_pack(value: any, packformat: str) -> bytes:
 	'''Value serialization function which applies struct.pack, given a value and a format string.
 	
 	The format string required is the one utilized by struct.pack()'''
-	return struct.pack(format, value)
+	return struct.pack(packformat, value)
 
 
-def unpack_unpack(value: any, format: str) -> bytes:
+def unpack_unpack(value: any, packformat: str) -> bytes:
 	'''Value deserialization function which applies struct.unpack, given a value and a format string.
 	
 	The format string required is the one utilized by struct.unpack()'''
-	return struct.unpack(format, value)
+	return struct.unpack(packformat, value)
 
 
 # These constants pair up the packing and unpacking methods into a nice, neat little package
@@ -300,29 +300,13 @@ class DataField:
 		if isinstance(field_value, list):
 			return RetVal(ErrBadValue)
 
-		# TODO: Convert this code to use the packer methods of FieldType
-		if self.type in ['string', 'msgcode']:
-			if not isinstance(field_value, str):
-				return RetVal(ErrBadValue)
-			self.value = field_value[:min(65535, len(field_value))].encode()
-			return RetVal()
-		
-		if self.type == 'bytes':
-			if not isinstance(field_value, bytes):
-				return RetVal(ErrBadValue)
-			self.value = field_value[:min(65535, len(field_value))]
-			return RetVal()
-		
 		ft = FieldType(self.type)
-		
-		if self.type == 'map':
-			if not isinstance(field_value, dict):
-				return RetVal(ErrBadValue)
-			self.value = ft.pack(field_value)
-			return RetVal()
-		
 		if not isinstance(field_value, ft.get_type()):
 			return RetVal(ErrBadValue)
+		
+		if self.type in ['string', 'msgcode', 'bytes']:
+			self.value = ft.pack(field_value[:min(65535, len(field_value))])
+			return RetVal()
 		
 		if self.type.startswith('int'):
 			if not check_int_range(field_value, ft.get_type_size()*8):
@@ -387,7 +371,7 @@ class DataField:
 
 		# Make sure that the data unpacks properly before assigning values to the instance
 
-		if ft.unpack(b[3:]) == None:
+		if ft.unpack(b[3:]) is None:
 			return RetVal(ErrBadValue)
 
 		self.type = ft.value
