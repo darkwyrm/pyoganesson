@@ -1,6 +1,7 @@
+import socket
 import struct
 
-from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange, ErrBadData
+from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange, ErrBadData, ErrNetworkError
 
 # The DataField structure is the foundation of the lower levels of Oganesson messaging and is used
 # for data serialization. The serialized format consists of a type code, a 'uint16' length, and a
@@ -294,3 +295,26 @@ class DataField:
 		self.value = b[3:]
 
 		return RetVal()
+
+	def send(self, conn: socket.socket) -> RetVal:
+		'''Transmits the field over a socket.
+
+		The caller is responsible for ensuring the flattened data will fit in the network buffer.
+		'''
+		
+		if not conn:
+			return RetVal(ErrNetworkError)
+
+		flatdata = self.flatten()
+		if not flatdata:
+			return RetVal(ErrBadData)
+		
+		try:
+			bytes_written = conn.send()
+		except Exception as e:
+			return RetVal().wrap_exception(e)
+		
+		if bytes_written == 0:
+			return RetVal(ErrNetworkError, 'zero bytes sent')
+
+		return RetVal().set_value('size_sent', bytes_written)
