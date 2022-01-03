@@ -158,10 +158,11 @@ class FieldType:
 		# Message codes are strings, but they need to be different from the string type for clarity
 		'msgcode' : FieldTypeInfo(15, PackMethodsEncode, None, 0, str),
 
-		# TODO: Add OgMessage type code info
-
 		# WirePacket type codes
-		# 'singlepacket' : FieldTypeInfo(21, 'singlepacket', , bytesize, type_class)
+		'singlepacket' : FieldTypeInfo(21, PackMethodsStub, None, 0, bytes),
+		'multipartpacket' : FieldTypeInfo(22, PackMethodsStub, None, 0, bytes),
+		'multipart' : FieldTypeInfo(23, PackMethodsStub, None, 0, bytes),
+		'multipartfinal' : FieldTypeInfo(24, PackMethodsStub, None, 0, bytes),
 	}
 
 	# Lookup table to convert msg type codes to their string names
