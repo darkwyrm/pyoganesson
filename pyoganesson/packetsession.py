@@ -1,6 +1,6 @@
 import socket
 
-from retval import RetVal, ErrBadType, ErrEmptyData, ErrNetworkError
+from retval import RetVal, ErrBadType, ErrEmptyData
 
 from pyoganesson.field import DataField
 
@@ -58,15 +58,7 @@ class PacketSession:
 		# If the message Value is small enough to fit into a single message chunk, just send it and
 		# be done.
 		if len(packet.value) < value_size:
-			# TODO: This construct should be replaced by a write_field() function
-			try:
-				bytes_written = self.conn.send(packet.flatten())
-			except Exception as e:
-				return RetVal().wrap_exception(e)
-			
-			if bytes_written == 0:
-				return RetVal(ErrNetworkError, 'zero bytes sent')
-
+			return packet.send(self.conn)
 
 		# If the message is bigger than the max command length, then we will send the value as
 		# a multipart message. This takes more work internally, but the benefits at the application
@@ -78,15 +70,16 @@ class PacketSession:
 		# data. The size Value is actually a decimal string of the total message size.
 
 		msglen = len(packet.value)
-		# TODO: This construct should be replaced by a write_field() function
-		try:
-			bytes_written = self.conn.send(DataField('uint16', msglen).flatten())
-		except Exception as e:
-			return RetVal().wrap_exception(e)
-		
-		if bytes_written == 0:
-			return RetVal(ErrNetworkError, 'zero bytes sent')
+		status = DataField('multipartpacket', msglen).send(self.conn)
+		if status.error():
+			return status
 
-		# TODO: Finish implementing PacketSession.write_wire_packet()
+		index = 0
+		while index + msglen:
+			status = DataField('multipart', packet.value[index:index + value_size]).send(self.conn)
+			if status.error():
+				return status
+			
+			index = index + value_size
 		
-		return None
+		return DataField('multipartfinal', packet.value[index:]).send(self.conn)
