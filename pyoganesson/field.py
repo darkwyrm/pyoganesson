@@ -160,7 +160,7 @@ class FieldType:
 
 		# WirePacket type codes
 		'singlepacket' : FieldTypeInfo(21, PackMethodsStub, None, 0, bytes),
-		'multipartpacket' : FieldTypeInfo(22, PackMethodsStub, None, 0, bytes),
+		'multipartpacket' : FieldTypeInfo(22, PackMethodsPack, '!H', 0, int),
 		'multipart' : FieldTypeInfo(23, PackMethodsStub, None, 0, bytes),
 		'multipartfinal' : FieldTypeInfo(24, PackMethodsStub, None, 0, bytes),
 	}
