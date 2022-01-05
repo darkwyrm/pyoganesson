@@ -380,6 +380,26 @@ class DataField:
 
 		return RetVal()
 
+	def recv(self, conn: socket.socket) -> RetVal:
+		'''Reads the field from a socket'''
+
+		if not conn:
+			return RetVal(ErrNetworkError)
+
+		try:
+			flatdata = conn.recv()
+		except Exception as e:
+			return RetVal().wrap_exception(e)
+		
+		if len(flatdata) == 0:
+			return RetVal(ErrNetworkError, 'zero bytes read')
+
+		status = self.unflatten(flatdata)
+		if status.error():
+			return status
+
+		return RetVal().set_value('size_received', len(flatdata))
+
 	def send(self, conn: socket.socket) -> RetVal:
 		'''Transmits the field over a socket.
 
