@@ -2,7 +2,7 @@ import socket
 
 from retval import RetVal, ErrBadType, ErrEmptyData
 
-from pyoganesson.field import DataField
+from pyoganesson.field import DataField, FieldType
 
 # Constants and Configurable Globals
 
@@ -36,12 +36,54 @@ class PacketSession:
 		if conn is not None:
 			conn.settimeout(timeout)
 
-	def read_wire_packet(self) -> DataField:
+	def read_wire_packet(self) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
 		multipart packets into one contiguous byte array'''
 
-		# TODO: Implement PacketSession.read_wire_packet()
-		return None
+		df = DataField()
+		
+		status = df.recv(self.conn)
+		if status.error():
+			return status
+		
+		out_type = 0
+		if df.type == SinglePacket:
+			return RetVal().set_value('field', df)
+		if df.type in [OgMultipart, OgMultipartFinal]:
+			return RetVal('ErrMultipartSession')
+		if df.type == OgMultipartPacket:
+			out_type = OgMultipartPacket
+		else:
+			return RetVal('ErrInvalidMsg')
+
+		# We got this far, so we have a multipart message which we need to reassemble.
+
+		# The value was already checked by the unflatten() call in recv(), so no need to worry here
+		total_size = df.get()['value']
+		msgparts = []
+		size_read = 0
+		while size_read < total_size:
+			status = df.recv(self.conn)
+			if status.error():
+				return status
+			
+			msgparts.append(df.value)
+			if df.type != 'bytes':
+				return RetVal('ErrBadType')
+			
+			# The field is expected to be a byte string, so no need to call get()
+			size_read = size_read + len(df.value)
+
+			if df.type == OgMultipartFinal:
+				break
+		
+		out = DataField()
+		out.type = out_type
+		out.value = b''.join(msgparts)
+		if len(out.value) != total_size:
+			return RetVal('ErrSize')
+		
+		return RetVal().set_value('field',out)
 
 	def write_wire_packet(self, packet: DataField) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
