@@ -1,24 +1,37 @@
-import asyncio
+import inspect
 import socket
 
+from fakesocket import FakeSocket
+
+from pyoganesson.field import DataField
 from pyoganesson.packetsession import PacketSession
 
-async def wire_packet_listener():
-	'''Function for use with test_write_wire_packet(). It listens for network connections.'''
-	listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	listener.bind((socket.gethostbyname(), 3000))
-	await listener.listen(5)
-	# TODO: finish wire_packet_listener()
 
-
-async def wire_packet_writer():
-	'''Function which sends the message for the write_wire_packet test'''
-	# TODO: finish wire_packet_writer()
+def funcname() -> str:
+	'''Returns the name of the current function'''
+	frames = inspect.getouterframes(inspect.currentframe())
+	return frames[1].function
 
 
 def test_write_wire_packet():
 	'''Tests PacketSession write_wire_packet()'''
-	asyncio.gather(wire_packet_listener(), wire_packet_writer())
+	sock = FakeSocket()	
+
+	sender = PacketSession(sock)
+	msg = DataField('singlepacket',b'{"Type":"TEST","Command":"ThisIsATestMessage",' \
+		b'"Args": {"TestArg": "AAAAAAAAAABBBBBBBBBBCCCCCCCCCCDDDDDDDDDDEEEEEEEEEEFFFFFFFFFF' \
+		b'GGGGGGGGGGHHHHHHHHHHIIIIIIIIIIJJJJJJJJJJKKKKKKKKKKLLLLLLLLLLMMMMMMMMMMNNNNNNNNNN' \
+		b'OOOOOOOOOOPPPPPPPPPPQQQQQQQQQQRRRRRRRRRRSSSSSSSSSSTTTTTTTTTTUUUUUUUUUUVVVVVVVVVV' \
+		b'WWWWWWWWWWXXXXXXXXXXYYYYYYYYYYZZZZZZZZZZAAAAAAAAAABBBBBBBBBBCCCCCCCCCCDDDDDDDDDD' \
+		b'EEEEEEEEEEFFFFFFFFFFGGGGGGGGGGHHHHHHHHHHIIIIIIIIIIJJJJJJJJJJKKKKKKKKKKLLLLLLLLLL' \
+		b'MMMMMMMMMMNNNNNNNNNNOOOOOOOOOOPPPPPPPPPPQQQQQQQQQQRRRRRRRRRRSSSSSSSSSSTTTTTTTTTT' \
+		b'UUUUUUUUUUVVVVVVVVVVWWWWWWWWWWXXXXXXXXXXYYYYYYYYYYZZZZZZZZZZ12345678901234567890"}}')
+	status = sender.write_wire_packet(msg)
+	assert not status.error(), f'{funcname()}: error sending multipart msg: {status.error()}'
+
+	receiver = PacketSession(sock)
+	status = receiver.read_wire_packet()
+	assert not status.error(), f"{funcname()}: failed to read multipart message: {status.error()}"
 
 
 if __name__ == '__main__':
