@@ -14,20 +14,6 @@ MaxCommandLength = 16384
 
 PacketSessionTimeout = 30.0
 
-# WirePacket type codes
-SinglePacket = 21
-
-# Codes for multipart message handling
-OgMultipartPacket = 22
-OgMultipart = 23
-OgMultipartFinal = 24
-
-
-def is_packet_type_valid(ptype: int) -> bool:
-	'''Returns true if the specified packet type is valid'''
-	return SinglePacket <= ptype <= OgMultipartFinal
-
-
 class PacketSession:
 	'''PacketSession is for easily handling socket timeouts'''
 
@@ -47,12 +33,12 @@ class PacketSession:
 			return status
 		
 		out_type = 0
-		if df.type == SinglePacket:
+		if df.type == 'singlepacket':
 			return RetVal().set_value('field', df)
-		if df.type in [OgMultipart, OgMultipartFinal]:
+		if df.type in ['multipart', 'multipartfinal']:
 			return RetVal('ErrMultipartSession')
-		if df.type == OgMultipartPacket:
-			out_type = OgMultipartPacket
+		if df.type == 'multipartpacket':
+			out_type = 'multipartpacket'
 		else:
 			return RetVal('ErrInvalidMsg')
 
@@ -74,7 +60,7 @@ class PacketSession:
 			# The field is expected to be a byte string, so no need to call get()
 			size_read = size_read + len(df.value)
 
-			if df.type == OgMultipartFinal:
+			if df.type == 'multipartfinal':
 				break
 		
 		out = DataField()
@@ -89,7 +75,7 @@ class PacketSession:
 		'''A method used to read individual packet messages from a socket and to assemble 
 		multipart packets into one contiguous byte array'''
 
-		if not is_packet_type_valid(packet.type):
+		if not FieldType(packet.type).is_valid_type():
 			return RetVal(ErrBadType)
 		
 		if not packet.value:
