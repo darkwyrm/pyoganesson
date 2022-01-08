@@ -1,5 +1,4 @@
 import inspect
-import socket
 
 from fakesocket import FakeSocket
 
