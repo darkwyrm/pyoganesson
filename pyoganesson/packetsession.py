@@ -21,6 +21,7 @@ class PacketSession:
 		self.conn = conn
 		if conn is not None:
 			conn.settimeout(timeout)
+		self.maxsize = MaxCommandLength
 
 	def read_wire_packet(self) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
@@ -81,7 +82,7 @@ class PacketSession:
 		if not packet.value:
 			return RetVal(ErrEmptyData)
 
-		value_size = MaxCommandLength-3
+		value_size = self.maxsize-3
 
 		# If the message Value is small enough to fit into a single message chunk, just send it and
 		# be done.
@@ -103,7 +104,7 @@ class PacketSession:
 			return status
 
 		index = 0
-		while index + msglen:
+		while index + value_size < msglen:
 			status = DataField('multipart', packet.value[index:index + value_size]).send(self.conn)
 			if status.error():
 				return status
