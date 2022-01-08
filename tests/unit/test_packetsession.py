@@ -74,7 +74,7 @@ def test_read_multipart_wire_packet():
 	# necessary to make the test data manageable.
 	sender = PacketSession(sock)
 	sender.maxsize = 10
-	msg = DataField('singlepacket',b'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+	msg = DataField('singlepacket', b'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
 	status = sender.write_wire_packet(msg)
 	assert not status.error(), f'{funcname()}: error sending multipart msg: {status.error()}'
 
@@ -82,6 +82,12 @@ def test_read_multipart_wire_packet():
 	status = receiver.read_wire_packet()
 	assert not status.error(), \
 		f"{funcname()}: error receiving multipart message: {status.error()}"
+	assert 'field' in status, \
+		f"{funcname()}: field 'field' not in message"
+	
+	df = status['field']
+	assert df.type == 'singlepacket' and df.value == b'ABCDEFGHIJKLMNOPQRSTUVWXYZ', \
+		f"{funcname()}: multipart message type/value mismatch: {df.type}/{df.value}"
 
 
 if __name__ == '__main__':

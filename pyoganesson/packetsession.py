@@ -39,7 +39,7 @@ class PacketSession:
 		if df.type in ['multipart', 'multipartfinal']:
 			return RetVal('ErrMultipartSession')
 		if df.type == 'multipartpacket':
-			out_type = 'multipartpacket'
+			out_type = 'singlepacket'
 		else:
 			return RetVal('ErrInvalidMsg')
 
@@ -55,14 +55,15 @@ class PacketSession:
 				return status
 			
 			msgparts.append(df.value)
-			if df.type != 'bytes':
+
+			if df.type == 'multipartfinal':
+				break
+			
+			if df.type != 'multipart':
 				return RetVal('ErrBadType')
 			
 			# The field is expected to be a byte string, so no need to call get()
 			size_read = size_read + len(df.value)
-
-			if df.type == 'multipartfinal':
-				break
 		
 		out = DataField()
 		out.type = out_type
