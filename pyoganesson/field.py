@@ -166,24 +166,28 @@ class FieldType:
 	}
 
 	# Lookup table to convert msg type codes to their string names
-	_typename_lookup = [
-		'unknown',
-		'int8',
-		'int16',
-		'int32',
-		'int64',
-		'uint8',
-		'uint16',
-		'uint32',
-		'uint64',
-		'string',
-		'bool',
-		'float32',
-		'float64',
-		'bytes',
-		'map',
-		'msgcode'
-	]
+	_typename_lookup = {
+		0:'unknown',
+		1:'int8',
+		2:'int16',
+		3:'int32',
+		4:'int64',
+		5:'uint8',
+		6:'uint16',
+		7:'uint32',
+		8:'uint64',
+		9:'string',
+		10:'bool',
+		11:'float32',
+		12:'float64',
+		13:'bytes',
+		14:'map',
+		15:'msgcode',
+		21:'singlepacket',
+		22:'multipartpacket',
+		23:'multipart',
+		24:'multipartfinal'
+	}
 
 	def __init__(self, field_type = 'unknown'):
 		self.value = 'unknown'
@@ -220,13 +224,13 @@ class FieldType:
 	
 	def get_type_from_code(self, typecode: int) -> str:
 		'''Returns the name of the type indicated by the passed code or a negative number on error'''
-		if 0 < typecode < len(FieldType._typename_lookup):
+		if typecode in FieldType._typename_lookup:
 			return FieldType._typename_lookup[typecode]
 		return -1
 	
 	def set_from_code(self, typecode: int) -> bool:
 		'''Returns the name of the type indicated by the passed code or a negative number on error'''
-		if 0 < typecode < len(FieldType._typename_lookup):
+		if typecode in FieldType._typename_lookup:
 			self.value = FieldType._typename_lookup[typecode]
 			return True
 		return False
@@ -414,7 +418,7 @@ class DataField:
 			return RetVal(ErrBadData)
 		
 		try:
-			bytes_written = conn.send()
+			bytes_written = conn.send(flatdata)
 		except Exception as e:
 			return RetVal().wrap_exception(e)
 		
