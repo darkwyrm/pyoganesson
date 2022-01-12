@@ -155,6 +155,8 @@ class FieldType:
 		# string field paired with another field. 
 		'map' : FieldTypeInfo(14, PackMethodsLength, '!H', 2, dict),
 		
+		# TODO: fix map packing to flatten the whole thing
+
 		# Message codes are strings, but they need to be different from the string type for clarity
 		'msgcode' : FieldTypeInfo(15, PackMethodsEncode, None, 0, str),
 
