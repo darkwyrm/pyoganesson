@@ -25,7 +25,11 @@ class PacketSession:
 
 	def read_wire_packet(self) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
-		multipart packets into one contiguous byte array'''
+		multipart packets into one contiguous byte array
+		
+		Returns:
+		field 'field': a DataField object representing the wire protocol message received
+		'''
 
 		df = DataField()
 		
@@ -75,7 +79,14 @@ class PacketSession:
 
 	def write_wire_packet(self, packet: DataField) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
-		multipart packets into one contiguous byte array'''
+		multipart packets into one contiguous byte array
+		
+		Parameters:
+		packet: a wire protocol message to be sent
+
+		Returns:
+		field 'size_written': the number of bytes sent
+		'''
 
 		if not FieldType(packet.type).is_valid_type():
 			return RetVal(ErrBadType)
@@ -112,4 +123,7 @@ class PacketSession:
 			
 			index = index + value_size
 		
+		# TODO: rework this so that bytes_written is correct
+		# Currently this method returns only the bytes sent in the final multipart packet
+
 		return DataField('multipartfinal', packet.value[index:]).send(self.conn)
