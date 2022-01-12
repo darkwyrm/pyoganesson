@@ -1,6 +1,7 @@
 from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound
 
-from field import DataField 
+from field import DataField
+from pyoganesson.field import FieldType 
 
 class WireMsg:
 	'''Represents a protocol-level message'''
@@ -78,3 +79,15 @@ class WireMsg:
 
 		return status['value']
 	
+	def flatten(self) -> RetVal:
+		'''Serializes the message into a byte string
+		
+		Returns:
+		field 'bytes': flattened byte string. Only returned on success.
+		'''
+		codefield = DataField('msgcode', self.code)
+		sizefield = DataField('uint16', len(self.attachments))
+
+		# TODO: Finish flatten()
+		
+		return RetVal('ErrUnimplemented')
