@@ -290,6 +290,14 @@ class DataField:
 		
 		return flat_size > 0 and len(self.value) == flat_size - 3
 
+	def set_from_value(self, field_value: any) -> RetVal():
+		'''Sets the field's value to whatever is passed to the function.
+
+		Notes:
+		This version of set tries to determine the attachment type based on the value passed.
+		'''
+		# TODO: implement set_from_value()
+
 	def set(self, field_type: int, field_value: any) -> RetVal():
 		'''Sets the field's value to whatever is passed to the function.
 
