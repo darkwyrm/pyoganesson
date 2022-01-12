@@ -1,4 +1,4 @@
-from retval import RetVal, ErrEmptyData, ErrBadType
+from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound
 
 from field import DataField 
 
@@ -37,4 +37,44 @@ class WireMsg:
 		
 		return RetVal()
 	
+	def get_field(self, index: str) -> RetVal:
+		'''Returns the value of the specified attachment
 		
+		Parameters:
+		index: the name of the attached field to obtain
+
+		Returns:
+		field 'type': the type code of value returned
+		field 'value': the value of the field
+		'''
+
+		if not index or len(self.attachments) == 0:
+			return RetVal(ErrEmptyData)
+		
+		if index not in self.attachments:
+			return RetVal(ErrNotFound)
+		
+		return self.attachments[index].get()
+	
+	def has_field(self, index: str) -> bool:
+		'''Returns true if the message has the specified field'''
+		return index in self.attachments
+	
+	def get_string_field(self, index: str) -> str:
+		'''Convenience method for working with string fields
+		
+		Parameters:
+		index: the name of the attachment to obtain
+		
+		Returns:
+		Value of the specified string field or empty string on error.'''
+
+		if not index or not index in self.attachments:
+			return ''
+
+		status = self.attachments[index].get()
+		if status.error() or status['type'] not in ['string', 'msgcode']:
+			return ''
+
+		return status['value']
+	
