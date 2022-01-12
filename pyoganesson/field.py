@@ -385,7 +385,14 @@ class DataField:
 		return RetVal()
 
 	def recv(self, conn: socket.socket) -> RetVal:
-		'''Reads the field from a socket'''
+		'''Reads the field from a socket
+		
+		Parameters:
+		conn: a socket to read the data from
+		
+		Returns:
+		field 'size_received': the number of bytes read
+		'''
 
 		if not conn:
 			return RetVal(ErrNetworkError)
