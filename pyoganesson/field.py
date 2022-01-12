@@ -211,7 +211,7 @@ class FieldType:
 		return None
 	
 	def get_type_code(self) -> int:
-		'''Returns the number of bytes occupied by the data type or a negative number on error'''
+		'''Returns the integer type code for the data type or a negative number on error'''
 		if self.is_valid_type():
 			return FieldType._typeinfo_lookup[self.value].index
 		return -1
