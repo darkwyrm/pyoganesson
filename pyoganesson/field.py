@@ -10,7 +10,7 @@ from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange, ErrBadData, E
 _typeinfo_lookup = {}
 
 # Lookup table to convert msg type codes to their string names
-_typename_lookup = {
+_typename_code_lookup = {
 	0:'unknown',
 	1:'int8',
 	2:'int16',
@@ -31,6 +31,18 @@ _typename_lookup = {
 	22:'multipartpacket',
 	23:'multipart',
 	24:'multipartfinal'
+}
+
+# Lookup table to convert Python variable types to type strings. Note that this table can't be
+# used directly. Call get_type_from_value() because additional processing is needed beyond
+# the basic lookup here
+_typename_type_lookup = {
+	int:'int',
+	str:'string',
+	bool:'bool',
+	float:'float64',
+	bytes:'bytes',
+	dict:'map'
 }
 
 def check_int_range(value: int, bitcount: int) -> bool:
@@ -94,7 +106,10 @@ def pack_map(value: dict, _) -> bytes:
 	fields.append(struct.pack('!B', _typeinfo_lookup['map'][0]) + struct.pack('!H', 2) + 
 		struct.pack('!H', len(value)))
 
-	for k,v in value:
+	for k,v in value.items():
+		if not isinstance(k, str):
+			raise TypeError('pack_map requires string keys')
+		
 		fields.append(DataField('string', k).flatten())
 		vf = DataField()
 		status = vf.set_from_value(v)
@@ -167,8 +182,8 @@ def init_type_info():
 	_typeinfo_lookup['uint64'] = (8, pack_pack, unpack_unpack, '!Q', 8, int)
 	_typeinfo_lookup['string'] = (9, pack_encode, unpack_decode, None, 0, str)
 	_typeinfo_lookup['bool'] = (10, pack_pack, unpack_unpack, '!?', 1, bool)
-	_typeinfo_lookup['float32'] = (11, pack_pack, unpack_unpack, '!f', 4, int)
-	_typeinfo_lookup['float64'] = (12, pack_pack, unpack_unpack, '!d', 8, int)
+	_typeinfo_lookup['float32'] = (11, pack_pack, unpack_unpack, '!f', 4, float)
+	_typeinfo_lookup['float64'] = (12, pack_pack, unpack_unpack, '!d', 8, float)
 	_typeinfo_lookup['bytes'] = (13, pack_stub, unpack_stub, None, 0, bytes)
 	
 	# 'map's are just a series of DataFields. The payloads themselves are 'uint16''s
@@ -224,14 +239,40 @@ def get_type(typename: str) -> any:
 
 def get_type_from_code(typecode: int) -> str:
 	'''Returns the name of the type indicated by the passed code or a negative number on error'''
-	if typecode in _typename_lookup:
-		return _typename_lookup[typecode]
+	if typecode in _typename_code_lookup:
+		return _typename_code_lookup[typecode]
 	return -1
+
+
+def get_type_from_value(value: any) -> str:
+	'''Returns the type name based on a value provided or an empty string on error'''
+
+	if type(value) not in _typename_type_lookup:
+		return ''
+	
+	typestr = _typename_type_lookup(type(value))
+	if typestr != 'int':
+		return typestr
+	
+	checktable = [
+		8,
+		16,
+		32,
+		64
+	]
+	for i in checktable:
+		if check_int_range(value, i):
+			return 'int' + str(i)
+		elif check_uint_range(value, i):
+			return 'uint' + str(i)
+	
+	return ''
+
 
 def code_to_type(typecode: int) -> str:
 	'''Returns the name of the type indicated by the passed code or an empty string on error'''
-	if typecode in _typename_lookup:
-		return _typename_lookup[typecode]
+	if typecode in _typename_code_lookup:
+		return _typename_code_lookup[typecode]
 	return ''
 
 
@@ -296,7 +337,11 @@ class DataField:
 		Notes:
 		This version of set tries to determine the attachment type based on the value passed.
 		'''
-		# TODO: implement set_from_value()
+		typename = get_type_from_value(field_value)
+		if not typename:
+			return ErrBadType
+		
+		return self.set(typename, field_value)
 
 	def set(self, field_type: int, field_value: any) -> RetVal():
 		'''Sets the field's value to whatever is passed to the function.
@@ -307,10 +352,10 @@ class DataField:
 		'''
 
 		self.type = field_type
-		if self.get_flat_size() < 0:
+		if not is_valid_type(self.type):
 			return RetVal(ErrBadType)
 		
-		if isinstance(field_value, list):
+		if isinstance(field_value, list) or isinstance(field_value, tuple):
 			return RetVal(ErrBadValue)
 
 		if not isinstance(field_value, get_type(self.type)):
