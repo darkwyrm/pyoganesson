@@ -66,10 +66,10 @@ def test_set():
 	assert not status.error(), f"{funcname()}: set('uint16', 1000) failed"
 	assert df.value == b'foobar', f"{funcname()}: set('string', 'foobar') mismatch: {df.value}"
 
-	status = df.set('map', {1:'1',2:'2'})
-	assert not status.error(), f"{funcname()}: set('map', {{1:'1',2:'2'}}) failed"
+	status = df.set('map', {'1':'a','2':'b'})
+	assert not status.error(), f"{funcname()}: set('map', {{'1':'a','2':'b'}}) failed"
 	assert df.value == b'\x00\x02', \
-		f"{funcname()}: set('map', {{1:'1',2:'2'}}) mismatch: {df.value}"
+		f"{funcname()}: set('map', {{'1':'a','2':'b'}}) mismatch: {df.value}"
 
 
 def test_get():
@@ -156,12 +156,12 @@ def test_flatten_unflatten():
 	assert flatvalue == b'\x0d\x00\x04spam', \
 		f"{funcname()}: flatten('bytes', b'spam') mismatch: {flatvalue}"
 
-	status = df.set('map', {1:'1',2:'2'})
+	status = df.set('map', {'1':'a','2':'b'})
 	assert not status.error(), \
-		f"{funcname()}: set('map', {{1:'1',2:'2'}}) error: {status.error()}"
+		f"{funcname()}: set('map', {{'1':'a','2':'b'}}) error: {status.error()}"
 	flatvalue = df.flatten()
 	assert flatvalue == b'\x0e\x00\x02\x00\x02', \
-		f"{funcname()}: flatten('map', {{1:'1',2:'2'}}) mismatch: {flatvalue}"
+		f"{funcname()}: flatten('map', {{'1':'a','2':'b'}}) mismatch: {flatvalue}"
 
 	df.type = 'unknown'
 	df.value = None
