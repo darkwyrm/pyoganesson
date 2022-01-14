@@ -88,8 +88,21 @@ def pack_map(value: dict, _) -> bytes:
 	if not isinstance(value, dict):
 		raise TypeError('pack_map() requires a dictionary')
 	
-	# TODO: implement pack_map	
-	return struct.pack('!H', len(value))
+	fields = [ ]
+
+	# Start with a DataField item which indicates the size of the container
+	fields.append(struct.pack('!B', _typeinfo_lookup['map'][0]) + struct.pack('!H', 2) + 
+		struct.pack('!H', len(value)))
+
+	for k,v in value:
+		fields.append(DataField('string', k).flatten())
+		vf = DataField()
+		status = vf.set_from_value(v)
+		if status.error():
+			return status
+		fields.append(vf.flatten())
+
+	return b''.join(fields)
 
 
 def unpack_map(value: dict, _) -> bytes:
