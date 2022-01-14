@@ -2,7 +2,7 @@ import socket
 
 from retval import RetVal, ErrBadType, ErrEmptyData
 
-from pyoganesson.field import DataField, FieldType
+from pyoganesson.field import DataField, is_valid_type
 
 # Constants and Configurable Globals
 
@@ -88,7 +88,7 @@ class PacketSession:
 		field 'size_written': the number of bytes sent
 		'''
 
-		if not FieldType(packet.type).is_valid_type():
+		if not is_valid_type(packet.type):
 			return RetVal(ErrBadType)
 		
 		if not packet.value:

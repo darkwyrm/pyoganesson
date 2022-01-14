@@ -7,6 +7,32 @@ from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange, ErrBadData, E
 # for data serialization. The serialized format consists of a type code, a 'uint16' length, and a
 # byte array of up to 64K.
 
+_typeinfo_lookup = {}
+
+# Lookup table to convert msg type codes to their string names
+_typename_lookup = {
+	0:'unknown',
+	1:'int8',
+	2:'int16',
+	3:'int32',
+	4:'int64',
+	5:'uint8',
+	6:'uint16',
+	7:'uint32',
+	8:'uint64',
+	9:'string',
+	10:'bool',
+	11:'float32',
+	12:'float64',
+	13:'bytes',
+	14:'map',
+	15:'msgcode',
+	21:'singlepacket',
+	22:'multipartpacket',
+	23:'multipart',
+	24:'multipartfinal'
+}
+
 def check_int_range(value: int, bitcount: int) -> bool:
 	'''Returns true if the given value fits in an integer of the specified bit size.
 	
@@ -54,25 +80,27 @@ def unpack_decode(value: str, _) -> bytes:
 	return value.decode()
 
 
-def pack_length(value: any, _) -> bytes:
-	'''Value serialization function which flattens the value to its length.
+def pack_map(value: dict, _) -> bytes:
+	'''Value serialization function which flattens a dictionary.
 	
 	To ensure compatibility with the other pack functions, it accepts a format string which is 
 	summarily ignored.'''
-	if not isinstance(value, dict) and not isinstance(value, list) and not isinstance(value, tuple):
-		raise TypeError('pack_length() requires a container')
+	if not isinstance(value, dict):
+		raise TypeError('pack_map() requires a dictionary')
 	
+	# TODO: implement pack_map	
 	return struct.pack('!H', len(value))
 
 
-def unpack_length(value: any, _) -> bytes:
-	'''Value deserialization function which unflattens value created by pack_length.
+def unpack_map(value: dict, _) -> bytes:
+	'''Value deserialization function which unflattens a dictionary.
 	
 	To ensure compatibility with the other pack functions, it accepts a format string which is 
 	summarily ignored.'''
 	if not isinstance(value, bytes):
-		raise TypeError('unpack_length() requires a binary string')
-	
+		raise TypeError('unpack_map() requires a binary string')
+
+	# TODO: implement unpack_map	
 	return struct.unpack('!H', value)
 
 
@@ -112,144 +140,102 @@ def unpack_unpack(value: any, packformat: str) -> bytes:
 	return struct.unpack(packformat, value)
 
 
-# These constants pair up the packing and unpacking methods into a nice, neat little package
-PackMethodsEncode = (pack_encode, unpack_decode)
-PackMethodsLength = (pack_length, unpack_length)
-PackMethodsStub = (pack_stub, unpack_stub)
-PackMethodsPack = (pack_pack, unpack_unpack)
-
-
-class FieldTypeInfo:
-	'''FieldTypeInfo is just a structure to house information about a specific FieldType type'''
+def init_type_info():
+	'''Sets up all the type information needed by the DataField-related classes'''
 	
-	def __init__(self, index: int, packer: tuple, pack_string: str, bytesize: int, type_class: any):
-		self.index = index
-		self.pack = packer[0]
-		self.unpack = packer[1]
-		self.size = bytesize
-		self.packstr = pack_string
-		self.type = type_class
-
-
-class FieldType:
-	'''The FieldType class is for handling the different types of DataField data'''
-	_typeinfo_lookup = {
-		'unknown' : FieldTypeInfo(0, (None, None), None, 0, None),
-		'int8' : FieldTypeInfo(1, PackMethodsPack, '!b', 1, int),
-		'int16' : FieldTypeInfo(2, PackMethodsPack,'!h', 2, int),
-		'int32' : FieldTypeInfo(3, PackMethodsPack, '!i', 4, int),
-		'int64' : FieldTypeInfo(4, PackMethodsPack, '!q', 8, int),
-		'uint8' : FieldTypeInfo(5, PackMethodsPack, '!B', 1, int),
-		'uint16' : FieldTypeInfo(6, PackMethodsPack, '!H', 2, int),
-		'uint32' : FieldTypeInfo(7, PackMethodsPack, '!I', 4, int),
-		'uint64' : FieldTypeInfo(8, PackMethodsPack, '!Q', 8, int),
-		'string' : FieldTypeInfo(9, PackMethodsEncode, None, 0, str),
-		'bool' : FieldTypeInfo(10, PackMethodsPack, '!?', 1, bool),
-		'float32' : FieldTypeInfo(11, PackMethodsPack, '!f', 4, int),
-		'float64' : FieldTypeInfo(12, PackMethodsPack, '!d', 8, int),
-		'bytes' : FieldTypeInfo(13, PackMethodsStub, None, 0, bytes),
-		
-		# 'map's are just a series of DataFields. The payloads themselves are 'uint16''s
-		# containing the number of items to follow that belong to the container. The actual item
-		# count is half of the number of actual DataFields to follow -- a DataField map item is a 
-		# string field paired with another field. 
-		'map' : FieldTypeInfo(14, PackMethodsLength, '!H', 2, dict),
-		
-		# TODO: fix map packing to flatten the whole thing
-
-		# Message codes are strings, but they need to be different from the string type for clarity
-		'msgcode' : FieldTypeInfo(15, PackMethodsEncode, None, 0, str),
-
-		# WirePacket type codes
-		'singlepacket' : FieldTypeInfo(21, PackMethodsStub, None, 0, bytes),
-		'multipartpacket' : FieldTypeInfo(22, PackMethodsPack, '!H', 0, int),
-		'multipart' : FieldTypeInfo(23, PackMethodsStub, None, 0, bytes),
-		'multipartfinal' : FieldTypeInfo(24, PackMethodsStub, None, 0, bytes),
-	}
-
-	# Lookup table to convert msg type codes to their string names
-	_typename_lookup = {
-		0:'unknown',
-		1:'int8',
-		2:'int16',
-		3:'int32',
-		4:'int64',
-		5:'uint8',
-		6:'uint16',
-		7:'uint32',
-		8:'uint64',
-		9:'string',
-		10:'bool',
-		11:'float32',
-		12:'float64',
-		13:'bytes',
-		14:'map',
-		15:'msgcode',
-		21:'singlepacket',
-		22:'multipartpacket',
-		23:'multipart',
-		24:'multipartfinal'
-	}
-
-	def __init__(self, field_type = 'unknown'):
-		self.value = 'unknown'
-		if field_type != 'unknown' and field_type in FieldType._typeinfo_lookup:
-			self.value = field_type
+	_typeinfo_lookup['unknown'] = (0, None, None, None, 0, None)
+	_typeinfo_lookup['int8'] = (1, pack_pack, unpack_unpack, '!b', 1, int)
+	_typeinfo_lookup['int16'] = (2, pack_pack, unpack_unpack,'!h', 2, int)
+	_typeinfo_lookup['int32'] = (3, pack_pack, unpack_unpack, '!i', 4, int)
+	_typeinfo_lookup['int64'] = (4, pack_pack, unpack_unpack, '!q', 8, int)
+	_typeinfo_lookup['uint8'] = (5, pack_pack, unpack_unpack, '!B', 1, int)
+	_typeinfo_lookup['uint16'] = (6, pack_pack, unpack_unpack, '!H', 2, int)
+	_typeinfo_lookup['uint32'] = (7, pack_pack, unpack_unpack, '!I', 4, int)
+	_typeinfo_lookup['uint64'] = (8, pack_pack, unpack_unpack, '!Q', 8, int)
+	_typeinfo_lookup['string'] = (9, pack_encode, unpack_decode, None, 0, str)
+	_typeinfo_lookup['bool'] = (10, pack_pack, unpack_unpack, '!?', 1, bool)
+	_typeinfo_lookup['float32'] = (11, pack_pack, unpack_unpack, '!f', 4, int)
+	_typeinfo_lookup['float64'] = (12, pack_pack, unpack_unpack, '!d', 8, int)
+	_typeinfo_lookup['bytes'] = (13, pack_stub, unpack_stub, None, 0, bytes)
 	
-	def is_valid_type(self):
-		'''Returns true if the string passed identifies a valid field type descriptor'''
-		return self.value != 'unknown' and self.value in FieldType._typeinfo_lookup
+	# 'map's are just a series of DataFields. The payloads themselves are 'uint16''s
+	# containing the number of items to follow that belong to the container. The actual item
+	# count is half of the number of actual DataFields to follow -- a DataField map item is a 
+	# string field paired with another field. 
+	_typeinfo_lookup['map'] = (14, pack_map, unpack_map, '!H', 2, dict)
 	
-	def get_pack_code(self) -> any:
-		'''Returns the struct.pack() code for the field type or None on error'''
-		if self.is_valid_type():
-			return FieldType._typeinfo_lookup[self.value].packstr
+	# TODO: fix map packing to flatten the whole thing
+
+	# Message codes are strings, but they need to be different from the string type for clarity
+	_typeinfo_lookup['msgcode'] = (15, pack_encode, unpack_decode, None, 0, str)
+
+	# WirePacket type codes
+	_typeinfo_lookup['singlepacket'] = (21, pack_stub, unpack_stub, None, 0, bytes)
+	_typeinfo_lookup['multipartpacket'] = (22, pack_pack, unpack_unpack, '!H', 0, int)
+	_typeinfo_lookup['multipart'] = (23, pack_stub, unpack_stub, None, 0, bytes)
+	_typeinfo_lookup['multipartfinal'] = (24, pack_stub, unpack_stub, None, 0, bytes)
+
+
+def is_valid_type(typename: str):
+	'''Returns true if the string passed identifies a valid field type descriptor'''
+	return typename != 'unknown' and typename in _typeinfo_lookup
+
+
+def get_type_code(typename: str) -> int:
+	'''Returns the integer type code for the data type or a negative number on error'''
+	if is_valid_type(typename):
+		return _typeinfo_lookup[typename][0]
+	return -1
+
+
+def get_pack_code(typename: str) -> any:
+	'''Returns the struct.pack() code for the field type or None on error'''
+	if is_valid_type(typename):
+		return _typeinfo_lookup[typename][3]
+	return None
+
+
+def get_type_size(typename: str) -> int:
+	'''Returns the number of bytes occupied by the data type or a negative number on error'''
+	if is_valid_type(typename):
+		return _typeinfo_lookup[typename][4]
+	return -1
+
+
+def get_type(typename: str) -> any:
+	'''Returns the Python type for the field type or None on error'''
+	if is_valid_type(typename):
+		return _typeinfo_lookup[typename][5]
+	return None
+
+
+def get_type_from_code(typecode: int) -> str:
+	'''Returns the name of the type indicated by the passed code or a negative number on error'''
+	if typecode in _typename_lookup:
+		return _typename_lookup[typecode]
+	return -1
+
+def code_to_type(typecode: int) -> str:
+	'''Returns the name of the type indicated by the passed code or an empty string on error'''
+	if typecode in _typename_lookup:
+		return _typename_lookup[typecode]
+	return ''
+
+
+def pack(typename: str, value: any) -> bytes:
+	'''Runs the pack method for the type'''
+	packer = _typeinfo_lookup[typename][1]
+	if not packer:
 		return None
-	
-	def get_type(self) -> any:
-		'''Returns the Python type for the field type or None on error'''
-		if self.is_valid_type():
-			return FieldType._typeinfo_lookup[self.value].type
-		return None
-	
-	def get_type_code(self) -> int:
-		'''Returns the integer type code for the data type or a negative number on error'''
-		if self.is_valid_type():
-			return FieldType._typeinfo_lookup[self.value].index
-		return -1
-	
-	def get_type_size(self) -> int:
-		'''Returns the number of bytes occupied by the data type or a negative number on error'''
-		if self.is_valid_type():
-			return FieldType._typeinfo_lookup[self.value].size
-		return -1
-	
-	def get_type_from_code(self, typecode: int) -> str:
-		'''Returns the name of the type indicated by the passed code or a negative number on error'''
-		if typecode in FieldType._typename_lookup:
-			return FieldType._typename_lookup[typecode]
-		return -1
-	
-	def set_from_code(self, typecode: int) -> bool:
-		'''Returns the name of the type indicated by the passed code or a negative number on error'''
-		if typecode in FieldType._typename_lookup:
-			self.value = FieldType._typename_lookup[typecode]
-			return True
-		return False
-	
-	def pack(self, value: any) -> bytes:
-		'''Runs the pack method for the type'''
-		packer = FieldType._typeinfo_lookup[self.value].pack
-		if not packer:
-			return None
-		return packer(value, self.get_pack_code())
+	return packer(value, get_pack_code(typename))
 
-	def unpack(self, value: any) -> bytes:
-		'''Runs the unpack method for the type'''
-		unpacker = FieldType._typeinfo_lookup[self.value].unpack
-		if not unpacker:
-			return None
-		return unpacker(value, self.get_pack_code())
+
+def unpack(typename: str, value: any) -> bytes:
+	'''Runs the unpack method for the type'''
+	unpacker = _typeinfo_lookup[typename][2]
+	if not unpacker:
+		return None
+	return unpacker(value, get_pack_code(typename))
 
 
 class DataField:
@@ -267,8 +253,7 @@ class DataField:
 		A negative value is returned if there is an error
 		'''
 
-		ft = FieldType(self.type)
-		if not ft.is_valid_type():
+		if not is_valid_type(self.type):
 			return -1
 		
 		if self.type in ['bytes', 'string', 'msgcode']:
@@ -277,7 +262,7 @@ class DataField:
 			value_length = min(65535, len(self.value))
 			return 3+value_length
 
-		return ft.get_type_size()+3
+		return get_type_size(self.type)+3
 
 	def is_valid(self) -> bool:
 		'''Returns true if the specified value is a valid DataField type code.
@@ -315,22 +300,21 @@ class DataField:
 		if isinstance(field_value, list):
 			return RetVal(ErrBadValue)
 
-		ft = FieldType(self.type)
-		if not isinstance(field_value, ft.get_type()):
+		if not isinstance(field_value, get_type(self.type)):
 			return RetVal(ErrBadValue)
 		
 		if self.type in ['string', 'msgcode', 'bytes']:
-			self.value = ft.pack(field_value[:min(65535, len(field_value))])
+			self.value = pack(self.type, field_value[:min(65535, len(field_value))])
 			return RetVal()
 		
 		if self.type.startswith('int'):
-			if not check_int_range(field_value, ft.get_type_size()*8):
+			if not check_int_range(field_value, get_type_size(self.type)*8):
 				return RetVal(ErrOutOfRange)
 		elif self.type.startswith('uint'):
-			if not check_uint_range(field_value, ft.get_type_size()*8):
+			if not check_uint_range(field_value, get_type_size(self.type)*8):
 				return RetVal(ErrOutOfRange)
 		
-		self.value = ft.pack(field_value)
+		self.value = pack(self.type, field_value)
 		
 		return RetVal()
 
@@ -346,9 +330,8 @@ class DataField:
 		if self.type == 'bytes':
 			return RetVal().set_values({'type':self.type, 'value':self.value})
 		
-		ft = FieldType(self.type)
 		try:
-			out = ft.unpack(self.value)
+			out = unpack(self.type, self.value)
 		except:
 			return RetVal(ErrBadValue)
 				
@@ -357,7 +340,7 @@ class DataField:
 	def flatten(self) -> bytes:
 		'''Returns a byte array representing the data field'''
 		
-		return struct.pack('!B', FieldType(self.type).get_type_code()) + \
+		return struct.pack('!B', get_type_code(self.type)) + \
 			struct.pack('!H', len(self.value)) + self.value
 
 	def unflatten(self, b: bytes) -> RetVal:
@@ -372,8 +355,8 @@ class DataField:
 		except:
 			return RetVal(ErrBadType)
 		
-		ft = FieldType()
-		if not ft.set_from_code(type_code):
+		typename = code_to_type(type_code)
+		if not typename:
 			return RetVal(ErrBadType)
 		
 		try:
@@ -386,10 +369,10 @@ class DataField:
 
 		# Make sure that the data unpacks properly before assigning values to the instance
 
-		if ft.unpack(b[3:]) is None:
+		if unpack(typename, b[3:]) is None:
 			return RetVal(ErrBadValue)
 
-		self.type = ft.value
+		self.type = typename
 		self.value = b[3:]
 
 		return RetVal()
