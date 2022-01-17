@@ -103,7 +103,7 @@ def pack_map(value: dict, _) -> bytes:
 	fields = [ ]
 
 	# Start with a DataField item which indicates the size of the container
-	fields.append(struct.pack('!B', _typeinfo_lookup['map'][0]) + struct.pack('!H', 2) + 
+	fields.append(struct.pack('!B', _typeinfo_lookup['uint16'][0]) + struct.pack('!H', 2) + 
 		struct.pack('!H', len(value)))
 
 	for k,v in value.items():
@@ -377,7 +377,12 @@ class DataField:
 		return RetVal()
 
 	def get(self) -> RetVal:
-		'''Returns the value of the DataField object'''
+		'''Returns the value of the DataField object
+		
+		Returns:
+		field 'type': a string containing the data's type, such as 'uint16' or 'map'
+		field 'value': the actual data
+		'''
 
 		if self.get_flat_size() < 0:
 			return RetVal(ErrBadType)

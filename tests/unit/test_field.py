@@ -68,8 +68,9 @@ def test_set():
 
 	status = df.set('map', {'1':'a','2':'b'})
 	assert not status.error(), f"{funcname()}: set('map', {{'1':'a','2':'b'}}) failed"
-	assert df.value == b'\x0e\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b', \
+	assert df.value == b'\x06\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b', \
 		f"{funcname()}: set('map', {{'1':'a','2':'b'}}) mismatch: {df.value}"
+
 
 def test_get():
 	'''Tests DataField.get()'''
@@ -139,28 +140,43 @@ def test_flatten_unflatten():
 	df = DataField()
 	status = df.set('uint16', 1000)
 	assert not status.error(), f"{funcname()}: set('uint16', 1000) error: {status.error()}"
-	flatvalue = df.flatten()
-	assert flatvalue == b'\x06\x00\x02\x03\xe8', \
-		f"{funcname()}: flatten('uint16', 1000) mismatch: {flatvalue}"
+	flattened = df.flatten()
+	assert flattened == b'\x06\x00\x02\x03\xe8', \
+		f"{funcname()}: flatten('uint16', 1000) mismatch: {flattened}"
 	
 	status = df.set('string', 'foobar')
 	assert not status.error(), f"{funcname()}: set('string', foobar) error: {status.error()}"
-	flatvalue = df.flatten()
-	assert flatvalue == b'\x09\x00\x06foobar', \
-		f"{funcname()}: flatten('string', 'foobar') mismatch: {flatvalue}"
+	flattened = df.flatten()
+	assert flattened == b'\x09\x00\x06foobar', \
+		f"{funcname()}: flatten('string', 'foobar') mismatch: {flattened}"
 
 	status = df.set('bytes', b'spam')
 	assert not status.error(), f"{funcname()}: set('bytes', b'spam') error: {status.error()}"
-	flatvalue = df.flatten()
-	assert flatvalue == b'\x0d\x00\x04spam', \
-		f"{funcname()}: flatten('bytes', b'spam') mismatch: {flatvalue}"
+	flattened = df.flatten()
+	assert flattened == b'\x0d\x00\x04spam', \
+		f"{funcname()}: flatten('bytes', b'spam') mismatch: {flattened}"
 
 	status = df.set('map', {'1':'a','2':'b'})
 	assert not status.error(), \
 		f"{funcname()}: set('map', {{'1':'a','2':'b'}}) error: {status.error()}"
-	flatvalue = df.flatten()
-	assert flatvalue == b'\x0e\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b', \
-		f"{funcname()}: flatten('map', {{'1':'a','2':'b'}}) mismatch: {flatvalue}"
+	flattened = df.flatten()
+	flatmap = b'\x0e\x00\x15\x06\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b'
+	assert flattened == flatmap, \
+		f"{funcname()}: flatten('map', {{'1':'a','2':'b'}}) mismatch: {flattened}"
+
+	df.type = 'unknown'
+	df.value = None
+	status = df.unflatten(flatmap)
+	assert not status.error(), \
+		f"{funcname()}: error unflattening({flatmap}): {status.error()}"
+	assert df.type == 'map', f"{funcname()}: unflatten(map) type mismatch: {df.value}"
+	status = df.get()
+	assert not status.error(), \
+		f"{funcname()}: error getting value from unflattened map: {status.error()}"
+	assert 'type' in status and status['type'] == 'map', \
+		f"{funcname()}: type field missing in unflattened map get()"
+	assert 'value' in status and status['value'] == {'1':'a','2':'b'}, \
+		f"{funcname()}: type field value mismatch in unflattened map get(): {status['value']}"
 
 	df.type = 'unknown'
 	df.value = None
