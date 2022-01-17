@@ -1,7 +1,6 @@
 from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound
 
-from field import DataField
-from pyoganesson.field import FieldType 
+from pyoganesson.field import DataField
 
 class WireMsg:
 	'''Represents a protocol-level message'''
@@ -26,7 +25,7 @@ class WireMsg:
 		if not isinstance(index, str):
 			return RetVal(ErrBadType, 'field indices must be strings')
 		
-		if data == None:
+		if data is None:
 			del self.attachments[index]
 		else:
 			df = DataField()
@@ -87,7 +86,14 @@ class WireMsg:
 		'''
 		codefield = DataField('msgcode', self.code)
 		sizefield = DataField('uint16', len(self.attachments))
+		mapfield = DataField('map', self.attachments)
+		
+		return RetVal().set_value('bytes', codefield.flatten() + sizefield.flatten() + 
+			mapfield.flatten())
 
-		# TODO: Finish flatten()
+	def unflatten(self, data: bytes) -> RetVal:
+		'''Deserializes the message from a byte string'''
+
+		# TODO: Implement WireMsg.unflatten()
 		
 		return RetVal('ErrUnimplemented')
