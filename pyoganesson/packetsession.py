@@ -114,6 +114,7 @@ class PacketSession:
 		status = DataField('multipartpacket', msglen).send(self.conn)
 		if status.error():
 			return status
+		bytes_sent = status['size_sent']
 
 		index = 0
 		while index + value_size < msglen:
@@ -121,9 +122,12 @@ class PacketSession:
 			if status.error():
 				return status
 			
+			bytes_sent = bytes_sent + status['size_sent']
 			index = index + value_size
 		
-		# TODO: rework this so that bytes_written is correct
-		# Currently this method returns only the bytes sent in the final multipart packet
-
-		return DataField('multipartfinal', packet.value[index:]).send(self.conn)
+		status = DataField('multipartfinal', packet.value[index:]).send(self.conn)
+		if status.error():
+			return status
+		
+		bytes_sent = bytes_sent + status['size_sent']
+		return RetVal().set_value('size_sent', bytes_sent)
