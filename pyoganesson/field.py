@@ -80,7 +80,32 @@ def unflatten_all(data: bytes) -> RetVal():
 	field 'fields': a list of DataField objects
 	'''
 
-	return RetVal('ErrUnimplemented')
+	# Minimum size for a DataField is 4 bytes - 1 byte type code, 2 bytes size, 1 byte data
+	if len(data) < 4:
+		return RetVal(ErrBadData)
+
+	out = []
+	start_index = 0
+	while start_index < len(data):
+
+		try:
+			fieldlen = struct.unpack('!H', data[start_index+1:start_index+3])
+		except:
+			return RetVal(ErrBadData, f"bad value size in field {len(out)}")
+		
+		end_index = start_index + 2 + fieldlen + 1
+		if end_index > len(data):
+			return RetVal('ErrSize')
+		
+		df = DataField()
+		status = df.unflatten(data[start_index:end_index])
+		if status.error():
+			return status
+		out.append(df)
+
+		start_index = end_index
+
+	return RetVal().set_value('fields', out)
 
 
 def pack_encode(value: str, _) -> bytes:
