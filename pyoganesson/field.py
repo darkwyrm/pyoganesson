@@ -158,7 +158,7 @@ def pack_map(value: dict, _) -> bytes:
 	return b''.join(fields)
 
 
-def unpack_map(value: bytes, _) -> dict:
+def unpack_map(value: bytes, _) -> tuple:
 	'''Value deserialization function which unflattens a dictionary.
 	
 	To ensure compatibility with the other pack functions, it accepts a format string which is 
@@ -202,7 +202,7 @@ def unpack_map(value: bytes, _) -> dict:
 
 		index = index + 2
 
-	return out
+	return (out,)
 
 
 def pack_stub(value: bytes, _) -> bytes:
