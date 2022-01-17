@@ -68,9 +68,8 @@ def test_set():
 
 	status = df.set('map', {'1':'a','2':'b'})
 	assert not status.error(), f"{funcname()}: set('map', {{'1':'a','2':'b'}}) failed"
-	assert df.value == b'\x00\x02', \
+	assert df.value == b'\x0e\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b', \
 		f"{funcname()}: set('map', {{'1':'a','2':'b'}}) mismatch: {df.value}"
-
 
 def test_get():
 	'''Tests DataField.get()'''
@@ -160,7 +159,7 @@ def test_flatten_unflatten():
 	assert not status.error(), \
 		f"{funcname()}: set('map', {{'1':'a','2':'b'}}) error: {status.error()}"
 	flatvalue = df.flatten()
-	assert flatvalue == b'\x0e\x00\x02\x00\x02', \
+	assert flatvalue == b'\x0e\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b', \
 		f"{funcname()}: flatten('map', {{'1':'a','2':'b'}}) mismatch: {flatvalue}"
 
 	df.type = 'unknown'
