@@ -70,6 +70,19 @@ def check_uint_range(value: int, bitcount: int) -> bool:
 	return 0 <= value <= (1 << bitcount) - 1
 
 
+def unflatten_all(data: bytes) -> RetVal():
+	'''Unflattens all DataFields in a byte string
+	
+	Parameters:
+	data: a byte string containing a series of flattened DataField instances
+	
+	Returns:
+	field 'fields': a list of DataField objects
+	'''
+
+	return RetVal('ErrUnimplemented')
+
+
 def pack_encode(value: str, _) -> bytes:
 	'''Value serialization function which converts strings to binary arrays.
 	
@@ -81,7 +94,7 @@ def pack_encode(value: str, _) -> bytes:
 	return value.encode()
 
 
-def unpack_decode(value: str, _) -> bytes:
+def unpack_decode(value: str, _) -> str:
 	'''Value deserialization function which converts binary arrays to strings.
 	
 	To ensure compatibility with the other pack functions, it accepts a format string which is 
@@ -120,7 +133,7 @@ def pack_map(value: dict, _) -> bytes:
 	return b''.join(fields)
 
 
-def unpack_map(value: dict, _) -> bytes:
+def unpack_map(value: bytes, _) -> dict:
 	'''Value deserialization function which unflattens a dictionary.
 	
 	To ensure compatibility with the other pack functions, it accepts a format string which is 
@@ -128,8 +141,43 @@ def unpack_map(value: dict, _) -> bytes:
 	if not isinstance(value, bytes):
 		raise TypeError('unpack_map() requires a binary string')
 
-	# TODO: implement unpack_map	
-	return struct.unpack('!H', value)
+	# 16 bytes = a dictionary consisting of a 1-byte string key and a 1-byte value
+	if len(value) < 16:
+		return None
+	
+	# The first DataField in a flattened should be a uint16 containing the number of key-value pairs
+	status = unflatten_all(value)
+	if status.error():
+		return None
+	
+	fields = status['fields']
+	status = fields[0].get()
+	if status.error() or status['type'] != 'uint16':
+		return None
+	itemcount = status['value']
+	listlen = (itemcount*2)+1
+	if len(fields) != listlen:
+		return None
+
+	out = {}
+	index = 1
+	while index < listlen:
+
+		status = fields[index].get()
+		if status.error() or status['type'] != 'string':
+			return None
+		
+		key = status['value']
+
+		status = fields[index+1].get()
+		if status.error():
+			return None
+		
+		out[key] = status['value']
+
+		index = index + 2
+
+	return out
 
 
 def pack_stub(value: bytes, _) -> bytes:
@@ -161,7 +209,7 @@ def pack_pack(value: any, packformat: str) -> bytes:
 	return struct.pack(packformat, value)
 
 
-def unpack_unpack(value: any, packformat: str) -> bytes:
+def unpack_unpack(value: bytes, packformat: str) -> any:
 	'''Value deserialization function which applies struct.unpack, given a value and a format string.
 	
 	The format string required is the one utilized by struct.unpack()'''
@@ -192,8 +240,6 @@ def init_type_info():
 	# string field paired with another field. 
 	_typeinfo_lookup['map'] = (14, pack_map, unpack_map, '!H', 2, dict)
 	
-	# TODO: fix map packing to flatten the whole thing
-
 	# Message codes are strings, but they need to be different from the string type for clarity
 	_typeinfo_lookup['msgcode'] = (15, pack_encode, unpack_decode, None, 0, str)
 
