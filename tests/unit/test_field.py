@@ -1,6 +1,6 @@
 import inspect
 
-from pyoganesson.field import DataField, check_int_range, check_uint_range
+from pyoganesson.field import DataField, check_int_range, check_uint_range, unflatten_all
 
 def funcname() -> str:
 	'''Returns the name of the current function'''
@@ -134,6 +134,16 @@ def test_is_valid():
 	assert df.is_valid(), f"{funcname()}: DataField('string', baz) is_valid() failure"
 
 
+def test_unflatten_all():
+	'''Tests the standalone function unflatten_all()'''
+
+	status = unflatten_all(
+		b'\x06\x00\x02\x00\x02\t\x00\x011\t\x00\x01a\t\x00\x012\t\x00\x01b')
+	assert not status.error(), f"{funcname()}: unflatten_all() error: {status.error()}"
+	fields = status['fields']
+	assert len(fields) == 5, f"{funcname()}: unflatten_all() only returned {len(fields)} fields"
+
+
 def test_flatten_unflatten():
 	'''Tests DataField.flatten()/unflatten()'''
 
@@ -201,4 +211,5 @@ if __name__ == '__main__':
 	test_get()
 	test_get_flat_size()
 	test_is_valid()
+	test_unflatten_all()
 	test_flatten_unflatten()

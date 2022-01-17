@@ -89,7 +89,7 @@ def unflatten_all(data: bytes) -> RetVal():
 	while start_index < len(data):
 
 		try:
-			fieldlen = struct.unpack('!H', data[start_index+1:start_index+3])
+			fieldlen = struct.unpack('!H', data[start_index+1:start_index+3])[0]
 		except:
 			return RetVal(ErrBadData, f"bad value size in field {len(out)}")
 		
