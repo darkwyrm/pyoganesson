@@ -250,7 +250,7 @@ def get_type_from_value(value: any) -> str:
 	if type(value) not in _typename_type_lookup:
 		return ''
 	
-	typestr = _typename_type_lookup(type(value))
+	typestr = _typename_type_lookup[type(value)]
 	if typestr != 'int':
 		return typestr
 	
