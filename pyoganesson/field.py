@@ -541,6 +541,13 @@ class DataField:
 	def send(self, conn: socket.socket) -> RetVal:
 		'''Transmits the field over a socket.
 
+		Parameters:
+		conn: a valid socket
+
+		Returns:
+		field 'size_sent': the number of bytes sent over the network
+
+		Notes:
 		The caller is responsible for ensuring the flattened data will fit in the network buffer.
 		'''
 		
