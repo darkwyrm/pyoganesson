@@ -149,10 +149,17 @@ def pack_map(value: dict, _) -> bytes:
 			raise TypeError('pack_map requires string keys')
 		
 		fields.append(DataField('string', k).flatten())
+
+		if isinstance(v, DataField):
+			if not v.is_valid():
+				return None
+			fields.append(v.flatten())
+			continue
+		
 		vf = DataField()
 		status = vf.set_from_value(v)
 		if status.error():
-			return status
+			return None
 		fields.append(vf.flatten())
 
 	return b''.join(fields)
