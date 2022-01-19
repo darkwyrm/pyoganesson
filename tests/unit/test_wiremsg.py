@@ -14,7 +14,6 @@ def test_add_field():
 
 	wm = WireMsg('test')
 
-	# add_field()
 	status = wm.add_field(None, 1)
 	assert status.error(), f"{funcname()}: add_field failed to catch empty data"
 
@@ -37,6 +36,38 @@ def test_add_field():
 		f"{funcname()}: internal data mismatch for add_field('2', 1000, 'uint16')"
 
 
+def test_field_misc():
+	'''Tests other misc WireMsg field methods'''
+
+	wm = WireMsg('test')
+	
+	# setup
+	status = wm.add_field('1', 100, 'uint8')
+	assert not status.error(), \
+		f"{funcname()}: error adding field ('1', 100, 'uint8'): {status.error()}"
+	status = wm.add_field('2', 1000, 'uint16')
+	assert not status.error(), \
+		f"{funcname()}: error adding field ('2', 1000, 'uint16'): {status.error()}"
+	status = wm.add_field('test', 'foo')
+	assert not status.error(), \
+		f"{funcname()}: error adding field ('test', 'foo'): {status.error()}"
+
+	# has_field()	
+	assert wm.has_field('1'), f"{funcname()}: has_field() failed to detect existing field"
+	assert not wm.has_field(''), f"{funcname()}: has_field() failed to handle empty key"
+	assert not wm.has_field('X'), f"{funcname()}: has_field() failed to detect nonexistent field"
+
+	# get_string_field()
+	assert wm.get_string_field('test'), \
+		f"{funcname()}: get_string_field() failed to detect existing field"
+	assert not wm.get_string_field('1'), \
+		f"{funcname()}: get_string_field() failed to handle non-string field"
+	assert not wm.get_string_field(''), \
+		f"{funcname()}: get_string_field() failed to handle empty key"
+	assert not wm.has_field('X'), \
+		f"{funcname()}: get_string_field() failed to detect nonexistent field"
+
+
 def test_wiremsg_flatten():
 	'''Tests WireMsg.flatten()'''
 
@@ -52,4 +83,5 @@ def test_wiremsg_flatten():
 
 if __name__ == '__main__':
 	test_add_field()
+	test_field_misc()
 	test_wiremsg_flatten()
