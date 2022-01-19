@@ -9,7 +9,7 @@ class WireMsg:
 		self.code = msgcode
 		self.attachments = {}
 	
-	def add_field(self, index: str, data: any) -> RetVal:
+	def add_field(self, index: str, data: any, dtype='') -> RetVal:
 		'''Method for attaching data to the message
 
 		Parameters:
@@ -29,7 +29,10 @@ class WireMsg:
 			del self.attachments[index]
 		else:
 			df = DataField()
-			status = df.set_from_value(data)
+			if dtype:
+				status = df.set(dtype, data)
+			else:
+				status = df.set_from_value(data)
 			if status.error():
 				return status
 			
