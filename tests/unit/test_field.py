@@ -174,6 +174,15 @@ def test_flatten_unflatten():
 	assert flattened == flatmap, \
 		f"{funcname()}: flatten('map', {{'1':'a','2':'b'}}) mismatch: {flattened}"
 
+	# For WireMsg to work correctly, it must be possible to flatten an empty map
+	status = df.set('map', {})
+	assert not status.error(), \
+		f"{funcname()}: set('map', {{}}) error: {status.error()}"
+	flattened = df.flatten()
+	emptymap = b'\x0e\x00\x05\x06\x00\x02\x00\x00'
+	assert flattened == emptymap, \
+		f"{funcname()}: flatten('map', {{}}) mismatch: {flattened}"
+
 	df.type = 'unknown'
 	df.value = None
 	status = df.unflatten(flatmap)
@@ -186,6 +195,20 @@ def test_flatten_unflatten():
 	assert 'type' in status and status['type'] == 'map', \
 		f"{funcname()}: type field missing in unflattened map get()"
 	assert 'value' in status and status['value'] == {'1':'a','2':'b'}, \
+		f"{funcname()}: type field value mismatch in unflattened map get(): {status['value']}"
+
+	df.type = 'unknown'
+	df.value = None
+	status = df.unflatten(emptymap)
+	assert not status.error(), \
+		f"{funcname()}: error unflattening({emptymap}): {status.error()}"
+	assert df.type == 'map', f"{funcname()}: unflatten(map) type mismatch: {df.value}"
+	status = df.get()
+	assert not status.error(), \
+		f"{funcname()}: error getting value from unflattened map: {status.error()}"
+	assert 'type' in status and status['type'] == 'map', \
+		f"{funcname()}: type field missing in unflattened map get()"
+	assert 'value' in status and status['value'] == {}, \
 		f"{funcname()}: type field value mismatch in unflattened map get(): {status['value']}"
 
 	df.type = 'unknown'

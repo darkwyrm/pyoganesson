@@ -166,8 +166,8 @@ def unpack_map(value: bytes, _) -> tuple:
 	if not isinstance(value, bytes):
 		raise TypeError('unpack_map() requires a binary string')
 
-	# 16 bytes = a dictionary consisting of a 1-byte string key and a 1-byte value
-	if len(value) < 16:
+	# 5 bytes = an empty dictionary
+	if len(value) < 5:
 		return None
 	
 	# The first DataField in a flattened should be a uint16 containing the number of key-value pairs
