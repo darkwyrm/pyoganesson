@@ -76,7 +76,16 @@ def test_wiremsg_flatten():
 	assert not status.error(), f"{funcname()}: error flattening empty wire message: {status.error()}"
 	flatdata = b'\x0f\x00\x04test\x0e\x00\x05\x06\x00\x02\x00\x00'
 	assert status['bytes'] == flatdata, \
-		f"{funcname()}: flat data mismatch: {status['bytes']}"
+		f"{funcname()}: flat empty message data mismatch: {status['bytes']}"
+
+	wm.add_field('1', 'a')
+	status = wm.flatten()
+	assert not status.error(), \
+		f"{funcname()}: error flattening wire message with data: {status.error()}"
+	flatdata = b'\x0f\x00\x04test\x0e\x00\x05\x06\x00\x02\x00\x00' \
+		b'\x0e\x00\x15\x06\x00\x02\x00\x02\t\x00\x011\t\x00\x01a'
+	assert status['bytes'] == flatdata, \
+		f"{funcname()}: flat populated message data mismatch: {status['bytes']}"
 
 	# TODO: Finish test_wiremsg_flatten()
 
