@@ -68,7 +68,7 @@ def test_field_misc():
 		f"{funcname()}: get_string_field() failed to detect nonexistent field"
 
 
-def test_wiremsg_flatten():
+def test_wiremsg_flatten_unflatten():
 	'''Tests WireMsg.flatten()'''
 
 	wm = WireMsg('test')
@@ -82,10 +82,10 @@ def test_wiremsg_flatten():
 	status = wm.flatten()
 	assert not status.error(), \
 		f"{funcname()}: error flattening wire message with data: {status.error()}"
-	flatdata = b'\x0f\x00\x04test\x0e\x00\x05\x06\x00\x02\x00\x00' \
-		b'\x0e\x00\x15\x06\x00\x02\x00\x02\t\x00\x011\t\x00\x01a'
+	flatdata = b'\x0f\x00\x04test\x0e\x00\r\x06\x00\x02\x00\x01\t\x00\x011\t\x00\x01a'
 	assert status['bytes'] == flatdata, \
-		f"{funcname()}: flat populated message data mismatch: {status['bytes']}"
+		f"{funcname()}: flat populated message data mismatch.\n" + \
+			f"Want:  {flatdata}\nGot: {status['bytes']}"
 
 	# TODO: Finish test_wiremsg_flatten()
 
@@ -93,4 +93,4 @@ def test_wiremsg_flatten():
 if __name__ == '__main__':
 	test_add_field()
 	test_field_misc()
-	test_wiremsg_flatten()
+	test_wiremsg_flatten_unflatten()
