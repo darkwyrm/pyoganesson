@@ -372,6 +372,18 @@ class DataField:
 		if field_type != '' and field_value is not None:
 			self.set(field_type, field_value)
 	
+	def __eq__(self, b):
+		if not isinstance(b, DataField):
+			return False
+		
+		return self.type == b.type and self.value == b.value
+
+	def __ne__(self, b):
+		if not isinstance(b, DataField):
+			return False
+		
+		return self.type != b.type or self.value != b.value
+
 	def get_flat_size(self) -> int:
 		'''get_flat_size() returns the number of bytes occupied by the field when serialized.
 		
