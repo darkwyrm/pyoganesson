@@ -422,7 +422,7 @@ class DataField:
 		'''
 		typename = get_type_from_value(field_value)
 		if not typename:
-			return ErrBadType
+			return RetVal(ErrBadType)
 		
 		return self.set(typename, field_value)
 
