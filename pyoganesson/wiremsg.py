@@ -1,4 +1,4 @@
-from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound
+from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound, ErrBadData
 
 from pyoganesson.field import DataField, unflatten_all
 
@@ -100,8 +100,18 @@ class WireMsg:
 			return status
 		
 		fields = status['fields']
-		
+		status = fields[0].get()
+		if status.error():
+			return status
+		if 'type' not in status or status['type'] != 'msgcode' or 'value' not in status:
+			return RetVal(ErrBadData)
+		self.code = status['value']
 
-		# TODO: Implement WireMsg.unflatten()
-		
-		return RetVal('ErrUnimplemented')
+		status = fields[1].get()
+		if status.error():
+			return status
+		if 'type' not in status or status['type'] != 'map' or 'value' not in status:
+			return RetVal(ErrBadData)
+		self.attachments = status['value']
+
+		return RetVal()
