@@ -123,14 +123,14 @@ class WireMsg:
 		if not session:
 			return RetVal(ErrEmptyData)
 
-		status = session.read_wire_packet()
+		status = session.read_packet()
 		if status.error():
 			return status
 		
-		if 'field' not in status:
+		if 'packet' not in status:
 			return RetVal(ErrNetworkError)
 		
-		df = status['field']
+		df = status['packet']
 		if df.type != 'bytes':
 			return RetVal(ErrBadData)
 		
@@ -148,4 +148,4 @@ class WireMsg:
 		if status.error():
 			return status
 		
-		return session.write_wire_packet(DataField('bytes', status['bytes']))
+		return session.write_packet(DataField('bytes', status['bytes']))

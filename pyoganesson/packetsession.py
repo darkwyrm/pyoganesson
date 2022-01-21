@@ -23,12 +23,12 @@ class PacketSession:
 			conn.settimeout(timeout)
 		self.maxsize = MaxCommandLength
 
-	def read_wire_packet(self) -> RetVal:
+	def read_packet(self) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
 		multipart packets into one contiguous byte array
 		
 		Returns:
-		field 'field': a DataField object representing the wire protocol message received
+		field 'packet': a DataField object representing the wire protocol message received
 		'''
 
 		df = DataField()
@@ -39,7 +39,7 @@ class PacketSession:
 		
 		out_type = 0
 		if df.type == 'singlepacket':
-			return RetVal().set_value('field', df)
+			return RetVal().set_value('packet', df)
 		if df.type in ['multipart', 'multipartfinal']:
 			return RetVal('ErrMultipartSession')
 		if df.type == 'multipartpacket':
@@ -75,9 +75,9 @@ class PacketSession:
 		if len(out.value) != total_size:
 			return RetVal('ErrSize')
 		
-		return RetVal().set_value('field',out)
+		return RetVal().set_value('packet',out)
 
-	def write_wire_packet(self, packet: DataField) -> RetVal:
+	def write_packet(self, packet: bytes) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 
 		multipart packets into one contiguous byte array
 		
@@ -88,18 +88,15 @@ class PacketSession:
 		field 'size_written': the number of bytes sent
 		'''
 
-		if not is_valid_type(packet.type):
-			return RetVal(ErrBadType)
-		
-		if not packet.value:
+		if not packet:
 			return RetVal(ErrEmptyData)
 
-		value_size = self.maxsize-3
+		packet_size = self.maxsize-3
 
 		# If the message Value is small enough to fit into a single message chunk, just send it and
 		# be done.
-		if len(packet.value) < value_size:
-			return packet.send(self.conn)
+		if len(packet) < packet_size:
+			return DataField('singlepacket', packet).send(self.conn)
 
 		# If the message is bigger than the max command length, then we will send the value as
 		# a multipart message. This takes more work internally, but the benefits at the application
@@ -110,20 +107,20 @@ class PacketSession:
 		# the total message size in the Value. All messages that follow contain the actual message 
 		# data. The size Value is actually a decimal string of the total message size.
 
-		msglen = len(packet.value)
+		msglen = len(packet)
 		status = DataField('multipartpacket', msglen).send(self.conn)
 		if status.error():
 			return status
 		bytes_sent = status['size_sent']
 
 		index = 0
-		while index + value_size < msglen:
-			status = DataField('multipart', packet.value[index:index + value_size]).send(self.conn)
+		while index + packet_size < msglen:
+			status = DataField('multipart', packet.value[index:index + packet_size]).send(self.conn)
 			if status.error():
 				return status
 			
 			bytes_sent = bytes_sent + status['size_sent']
-			index = index + value_size
+			index = index + packet_size
 		
 		status = DataField('multipartfinal', packet.value[index:]).send(self.conn)
 		if status.error():

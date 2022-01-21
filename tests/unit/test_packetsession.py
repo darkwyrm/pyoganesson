@@ -12,27 +12,27 @@ def funcname() -> str:
 	return frames[1].function
 
 
-def test_read_write_wire_packet():
+def test_read_write_packet():
 	'''Tests basic wire packete reading and writing functionality'''
 	sock = FakeSocket()	
 
 	sender = PacketSession(sock)
 	msg = DataField('singlepacket',b'foobar')
-	status = sender.write_wire_packet(msg)
+	status = sender.write_packet(msg)
 	assert not status.error(), f'{funcname()}: error sending msg: {status.error()}'
 
 	receiver = PacketSession(sock)
-	status = receiver.read_wire_packet()
+	status = receiver.read_packet()
 	assert not status.error(), f"{funcname()}: failed to read message: {status.error()}"
  
-	assert 'field' in status, f"{funcname()}: return message missing 'field'"
-	rmsg = status['field']
+	assert 'packet' in status, f"{funcname()}: return message missing 'packet'"
+	rmsg = status['packet']
 	assert rmsg.type == 'singlepacket' and rmsg.value == b'foobar', \
 		f"{funcname()}: return message type/value mismatch"
 
 
 def test_write_multipart_wire_packet():
-	'''Tests sending multipart messages with PacketSession's write_wire_packet()'''
+	'''Tests sending multipart messages with PacketSession's write_packet()'''
 	
 	sock = FakeSocket()	
 
@@ -41,7 +41,7 @@ def test_write_multipart_wire_packet():
 	sender = PacketSession(sock)
 	sender.maxsize = 10
 	msg = DataField('singlepacket',b'ABCDEFGHIJKLMNOPQRS')
-	status = sender.write_wire_packet(msg)
+	status = sender.write_packet(msg)
 	assert not status.error(), f'{funcname()}: error sending multipart msg: {status.error()}'
 
 	# Because the maximum buffer size is only 10 bytes, there should be room for only 7 letters per
@@ -66,7 +66,7 @@ def test_write_multipart_wire_packet():
 
 
 def test_read_multipart_wire_packet():
-	'''Tests receiving multipart messages with PacketSession's read_wire_packet()'''
+	'''Tests receiving multipart messages with PacketSession's read_packet()'''
 	
 	sock = FakeSocket()	
 
@@ -75,22 +75,22 @@ def test_read_multipart_wire_packet():
 	sender = PacketSession(sock)
 	sender.maxsize = 10
 	msg = DataField('singlepacket', b'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-	status = sender.write_wire_packet(msg)
+	status = sender.write_packet(msg)
 	assert not status.error(), f'{funcname()}: error sending multipart msg: {status.error()}'
 
 	receiver = PacketSession(sock)
-	status = receiver.read_wire_packet()
+	status = receiver.read_packet()
 	assert not status.error(), \
 		f"{funcname()}: error receiving multipart message: {status.error()}"
-	assert 'field' in status, \
-		f"{funcname()}: field 'field' not in message"
+	assert 'packet' in status, \
+		f"{funcname()}: field 'packet' not in message"
 	
-	df = status['field']
+	df = status['packet']
 	assert df.type == 'singlepacket' and df.value == b'ABCDEFGHIJKLMNOPQRSTUVWXYZ', \
 		f"{funcname()}: multipart message type/value mismatch: {df.type}/{df.value}"
 
 
 if __name__ == '__main__':
-	test_read_write_wire_packet()
+	test_read_write_packet()
 	test_write_multipart_wire_packet()
 	test_read_multipart_wire_packet()
