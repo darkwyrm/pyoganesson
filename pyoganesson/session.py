@@ -1,10 +1,24 @@
 import socket
 
 from pyeznacl import SecretKey
-from retval import RetVal
+from retval import RetVal, ErrEmptyData
+from pyoganesson.field import DataField
 
-from field import DataField
-from packetsession import PacketSession
+from pyoganesson.wiremsg import WireMsg
+from pyoganesson.packetsession import PacketSession
+
+ErrSessionSetup = 'ErrSessionSetup'
+
+
+def send_wire_error(msg_code: str, error_code: str, session: PacketSession) -> RetVal:
+	'''Convenience function to quickly send an error response'''
+	if not msg_code or not error_code:
+		return RetVal(ErrEmptyData)
+	
+	wm = WireMsg(msg_code)
+	wm.add_field('Error', error_code)
+	return wm.write(session)
+
 
 class OgServer:
 	'''Handles the server side of an encrypted Oganesson messaging session'''
@@ -22,9 +36,15 @@ class OgServer:
 		# Once the initial TCP connection is established, the client is expected to ask for the type
 		# of session encryption expected. Anything else is an error.
 
-		status = self.session.read_wire_packet()
+		wm = WireMsg()
+		status = wm.read(self.session)
 		if status.error():
 			return status
-
-		df = status['field']
 		
+		if wm.code != 'SessionSetup':
+			status = send_wire_error('SessionSetup', ErrSessionSetup, self.session)
+			if status.error():
+				return status
+			return RetVal(ErrSessionSetup)
+		
+		wm.attachments = { 'Session':'og' }
