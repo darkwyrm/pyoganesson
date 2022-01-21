@@ -1,6 +1,7 @@
-from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound, ErrBadData
+from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound, ErrBadData, ErrNetworkError
 
 from pyoganesson.field import DataField, unflatten_all
+from pyoganesson.packetsession import PacketSession
 
 class WireMsg:
 	'''Represents a protocol-level message'''
@@ -115,3 +116,36 @@ class WireMsg:
 		self.attachments = status['value']
 
 		return RetVal()
+
+	def read(self, session: PacketSession) -> RetVal:
+		'''Reads a message from a PacketSession'''
+
+		if not session:
+			return RetVal(ErrEmptyData)
+
+		status = session.read_wire_packet()
+		if status.error():
+			return status
+		
+		if 'field' not in status:
+			return RetVal(ErrNetworkError)
+		
+		df = status['field']
+		if df.type != 'bytes':
+			return RetVal(ErrBadData)
+		
+		# We can skip the get() call because this data field is a byte array containing flattened
+		# DataFields
+		return self.unflatten(df.value)
+
+	def write(self, session: PacketSession) -> RetVal:
+		'''Sends the message over a PacketSession'''
+		
+		if not session or not self.code:
+			return RetVal(ErrEmptyData)
+
+		status = self.flatten()
+		if status.error():
+			return status
+		
+		return session.write_wire_packet(DataField('bytes', status['bytes']))
