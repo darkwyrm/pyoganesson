@@ -69,13 +69,11 @@ class PacketSession:
 			# The field is expected to be a byte string, so no need to call get()
 			size_read = size_read + len(df.value)
 		
-		out = DataField()
-		out.type = out_type
-		out.value = b''.join(msgparts)
-		if len(out.value) != total_size:
+		out = b''.join(msgparts)
+		if len(out) != total_size:
 			return RetVal('ErrSize')
 		
-		return RetVal().set_value('packet',out)
+		return RetVal().set_value('packet', out)
 
 	def write_packet(self, packet: bytes) -> RetVal:
 		'''A method used to read individual packet messages from a socket and to assemble 

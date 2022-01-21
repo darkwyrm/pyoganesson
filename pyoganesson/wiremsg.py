@@ -148,4 +148,4 @@ class WireMsg:
 		if status.error():
 			return status
 		
-		return session.write_packet(DataField('bytes', status['bytes']))
+		return session.write_packet(status['bytes'])
