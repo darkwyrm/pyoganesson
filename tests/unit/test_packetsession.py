@@ -17,8 +17,7 @@ def test_read_write_packet():
 	sock = FakeSocket()	
 
 	sender = PacketSession(sock)
-	msg = DataField('singlepacket',b'foobar')
-	status = sender.write_packet(msg)
+	status = sender.write_packet(b'foobar')
 	assert not status.error(), f'{funcname()}: error sending msg: {status.error()}'
 
 	receiver = PacketSession(sock)
@@ -40,8 +39,7 @@ def test_write_multipart_wire_packet():
 	# necessary to make the test data manageable.
 	sender = PacketSession(sock)
 	sender.maxsize = 10
-	msg = DataField('singlepacket',b'ABCDEFGHIJKLMNOPQRS')
-	status = sender.write_packet(msg)
+	status = sender.write_packet(b'ABCDEFGHIJKLMNOPQRS')
 	assert not status.error(), f'{funcname()}: error sending multipart msg: {status.error()}'
 
 	# Because the maximum buffer size is only 10 bytes, there should be room for only 7 letters per
@@ -74,8 +72,7 @@ def test_read_multipart_wire_packet():
 	# necessary to make the test data manageable.
 	sender = PacketSession(sock)
 	sender.maxsize = 10
-	msg = DataField('singlepacket', b'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-	status = sender.write_packet(msg)
+	status = sender.write_packet(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ')
 	assert not status.error(), f'{funcname()}: error sending multipart msg: {status.error()}'
 
 	receiver = PacketSession(sock)

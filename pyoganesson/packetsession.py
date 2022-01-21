@@ -115,14 +115,14 @@ class PacketSession:
 
 		index = 0
 		while index + packet_size < msglen:
-			status = DataField('multipart', packet.value[index:index + packet_size]).send(self.conn)
+			status = DataField('multipart', packet[index:index + packet_size]).send(self.conn)
 			if status.error():
 				return status
 			
 			bytes_sent = bytes_sent + status['size_sent']
 			index = index + packet_size
 		
-		status = DataField('multipartfinal', packet.value[index:]).send(self.conn)
+		status = DataField('multipartfinal', packet[index:]).send(self.conn)
 		if status.error():
 			return status
 		
