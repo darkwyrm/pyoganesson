@@ -94,7 +94,14 @@ class WireMsg:
 		return RetVal().set_value('bytes', codefield.flatten() + mapfield.flatten())
 
 	def unflatten(self, data: bytes) -> RetVal:
-		'''Deserializes the message from a byte string'''
+		'''Deserializes a byte string into the message object
+		
+		Parameters:
+		data: a byte string containing flattened DataField data
+
+		Returns:
+		Errors only
+		'''
 
 		status = unflatten_all(data)
 		if status.error():
@@ -118,7 +125,11 @@ class WireMsg:
 		return RetVal()
 
 	def read(self, session: PacketSession) -> RetVal:
-		'''Reads a message from a PacketSession'''
+		'''Reads a message from a PacketSession
+		
+		Returns:
+		Errors only
+		'''
 
 		if not session:
 			return RetVal(ErrEmptyData)
@@ -139,7 +150,11 @@ class WireMsg:
 		return self.unflatten(df.value)
 
 	def write(self, session: PacketSession) -> RetVal:
-		'''Sends the message over a PacketSession'''
+		'''Sends the message over a PacketSession
+		
+		Returns:
+		Errors only
+		'''
 		
 		if not session or not self.code:
 			return RetVal(ErrEmptyData)
