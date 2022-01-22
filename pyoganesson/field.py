@@ -48,6 +48,7 @@ _typename_type_lookup = {
 def check_int_range(value: int, bitcount: int) -> bool:
 	'''Returns true if the given value fits in an integer of the specified bit size.
 	
+	Notes:
 	This function raises an exception if the bit count is less than one or greater than 64.'''
 	
 	if bitcount < 1 or bitcount > 64:
@@ -62,6 +63,7 @@ def check_int_range(value: int, bitcount: int) -> bool:
 def check_uint_range(value: int, bitcount: int) -> bool:
 	'''Returns true if the given value fits in an unsigned integer of the specified bit size.
 	
+	Notes:
 	This function raises an exception if the bit count is less than one or greater than 64.'''
 	
 	if bitcount < 1 or bitcount > 64:
@@ -323,7 +325,12 @@ def get_type_from_code(typecode: int) -> str:
 
 
 def get_type_from_value(value: any) -> str:
-	'''Returns the type name based on a value provided or an empty string on error'''
+	'''Returns the type name based on a value provided or an empty string on error
+	
+	Notes:
+	In the case of integer handling, this function prefers signed integers to unsigned and will 
+	return the smallest integer type capable of handling the value.
+	'''
 
 	if type(value) not in _typename_type_lookup:
 		return ''
@@ -355,7 +362,7 @@ def code_to_type(typecode: int) -> str:
 
 
 def pack(typename: str, value: any) -> bytes:
-	'''Runs the pack method for the type'''
+	'''Runs the pack function for the type'''
 	packer = _typeinfo_lookup[typename][1]
 	if not packer:
 		return None
@@ -363,7 +370,7 @@ def pack(typename: str, value: any) -> bytes:
 
 
 def unpack(typename: str, value: any) -> bytes:
-	'''Runs the unpack method for the type'''
+	'''Runs the unpack function for the type'''
 	unpacker = _typeinfo_lookup[typename][2]
 	if not unpacker:
 		return None
@@ -394,6 +401,7 @@ class DataField:
 	def get_flat_size(self) -> int:
 		'''get_flat_size() returns the number of bytes occupied by the field when serialized.
 		
+		Notes:
 		A negative value is returned if there is an error
 		'''
 
@@ -411,6 +419,7 @@ class DataField:
 	def is_valid(self) -> bool:
 		'''Returns true if the specified value is a valid DataField type code.
 		
+		Notes:
 		Because the Unknown type is treated as an error condition, passing unknown to this 
 		function will result in False being returned.
 		'''
@@ -436,6 +445,7 @@ class DataField:
 	def set(self, field_type: int, field_value: any) -> RetVal():
 		'''Sets the field's value to whatever is passed to the function.
 
+		Notes:
 		A type specifier is required because of the framework's strict typing. Objects and lists 
 		are not supported. Passing a dictionary to this function will set the field as a map type
 		and assigned its length to the length of the dictionary passed to it.
@@ -567,7 +577,9 @@ class DataField:
 		field 'size_sent': the number of bytes sent over the network
 
 		Notes:
-		The caller is responsible for ensuring the flattened data will fit in the network buffer.
+		This is a low-level method. The caller is responsible for ensuring the flattened data will 
+		completely fit in the network buffer. If you want to send larger sections of data, use a 
+		PacketSession.
 		'''
 		
 		if not conn:
