@@ -2,7 +2,6 @@ import socket
 
 from pyeznacl import SecretKey
 from retval import RetVal, ErrEmptyData
-from pyoganesson.field import DataField
 
 from pyoganesson.wiremsg import WireMsg
 from pyoganesson.packetsession import PacketSession

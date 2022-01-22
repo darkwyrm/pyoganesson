@@ -2,7 +2,6 @@ import inspect
 
 from fakesocket import FakeSocket
 
-from pyoganesson.field import DataField
 from pyoganesson.packetsession import PacketSession
 
 
@@ -83,8 +82,8 @@ def test_read_multipart_wire_packet():
 		f"{funcname()}: field 'packet' not in message"
 	
 	df = status['packet']
-	assert df.type == 'singlepacket' and df.value == b'ABCDEFGHIJKLMNOPQRSTUVWXYZ', \
-		f"{funcname()}: multipart message type/value mismatch: {df.type}/{df.value}"
+	assert df == b'ABCDEFGHIJKLMNOPQRSTUVWXYZ', \
+		f"{funcname()}: multipart message type/value mismatch: {df}"
 
 
 if __name__ == '__main__':

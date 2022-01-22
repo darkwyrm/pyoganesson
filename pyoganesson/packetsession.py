@@ -1,8 +1,8 @@
 import socket
 
-from retval import RetVal, ErrBadType, ErrEmptyData
+from retval import RetVal, ErrEmptyData
 
-from pyoganesson.field import DataField, is_valid_type
+from pyoganesson.field import DataField
 
 # Constants and Configurable Globals
 
@@ -37,14 +37,11 @@ class PacketSession:
 		if status.error():
 			return status
 		
-		out_type = 0
 		if df.type == 'singlepacket':
 			return RetVal().set_value('packet', df)
 		if df.type in ['multipart', 'multipartfinal']:
 			return RetVal('ErrMultipartSession')
-		if df.type == 'multipartpacket':
-			out_type = 'singlepacket'
-		else:
+		if df.type != 'multipartpacket':
 			return RetVal('ErrInvalidMsg')
 
 		# We got this far, so we have a multipart message which we need to reassemble.
