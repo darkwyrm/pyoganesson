@@ -1,6 +1,6 @@
 import socket
 
-from pyeznacl import SecretKey
+from pyeznacl import SecretKey, CryptoString, PublicKey
 from retval import RetVal, ErrEmptyData
 
 from pyoganesson.wiremsg import WireMsg
@@ -47,3 +47,49 @@ class OgServer:
 			return RetVal(ErrSessionSetup)
 		
 		wm.attachments = { 'Session':'og' }
+		status = wm.write(self.session)
+		if status.error():
+			return status
+		
+		# A regular Og session is encrypted, but performs no identity checking. Setup consists of 
+		# the client sending an ephemeral public key. The server receives it, generates a random 
+		# XSalsa20 key, encrypts it, and sends it to the client.
+
+		status = wm.read(self.session)
+		if status.error():
+			return status
+
+		if wm.code != 'SessionKey' or not wm.has_field('PublicKey'):
+			status = send_wire_error('SessionSetup', 'ErrProtocolError', self.session)
+			if status.error():
+				return status
+			return RetVal(ErrSessionSetup)
+		
+		keycs = CryptoString(wm.attachments['PublicKey'])
+		if not keycs.is_valid():
+			status = send_wire_error('SessionSetup', 'ErrBadSessionKey', self.session)
+			if status.error():
+				return status
+			return RetVal(ErrSessionSetup)
+
+		pubkey = PublicKey(keycs)
+		sessionkey = SecretKey()
+		wm = WireMsg('SessionKey')
+		wm.attachments['SecretKey'] = sessionkey.get_key()
+		wm.attachments['Fingerprint'] = self.fingerprint
+		status = wm.flatten()
+		if status.error():
+			send_wire_error('SessionSetup', 'ErrServerError', self.session)
+			return status
+		
+		encmsg = pubkey.encrypt(status['bytes'])
+
+		wm = WireMsg('SessionKey')
+		wm.add_field('SessionKey', pubkey.public.prefix.encode() + ':' + encmsg, 'bytes')
+		status = wm.write(self.session)
+
+		# TODO: Implement OgServer server and client identity checking
+
+		return status
+
+# TODO: Continue implementing OgServer class
