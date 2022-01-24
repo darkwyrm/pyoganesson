@@ -1,3 +1,5 @@
+from base64 import b85encode
+import secrets
 import socket
 
 from pyeznacl import SecretKey, CryptoString, PublicKey
@@ -127,6 +129,36 @@ class OgServer:
 		self.nextkey = SecretKey(next_key_str)
 
 		return wm.attachments['Data']
+
+	def write_data(self, data: bytes) -> RetVal:
+		'''Writes raw byte data to the network connection'''
+
+		if not data:
+			return RetVal(ErrEmptyData)
+		
+		wm = WireMsg('EncMsg')
+		wm.add_field('Data', data)
+		padding = secrets.token_bytes(secrets.randbelow(16)+1)
+		wm.add_field('Padding', str(b85encode(padding)))
+		wm.add_field('NextKey', self.nextkey.as_string())
+
+		status = wm.flatten()
+		if status.error():
+			return status
+		
+		status = self.key.encrypt(status['bytes'])
+		if status.error():
+			return status
+		
+		wrapper = WireMsg('OgMsg')
+		wm.attachments['Payload'] = status['data']
+		status = wm.write(self.session)
+		if status.error():
+			return status
+		
+		self.key = self.nextkey
+
+		return RetVal()
 
 
 # TODO: Continue implementing OgServer class
