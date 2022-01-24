@@ -3,6 +3,8 @@ from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound, ErrBadData, Er
 from pyoganesson.field import DataField, unflatten_all
 from pyoganesson.packetsession import PacketSession
 
+ErrInvalidMsg = 'ErrInvalidMsg'
+
 class WireMsg:
 	'''Represents a protocol-level message'''
 
