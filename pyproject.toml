@@ -25,3 +25,6 @@ dependencies = [
 	'dnspython>=2.1.0',
 	"pyeznacl>=1.0.0"
 ]
+
+[project.urls]
+Home = "https://github.com/darkwyrm/pyeznacl"
