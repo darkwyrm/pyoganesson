@@ -1,12 +1,13 @@
 import socket
 
 from pyeznacl import SecretKey, CryptoString, PublicKey
-from retval import RetVal, ErrEmptyData
+from retval import RetVal, ErrEmptyData, ErrClientError
 
-from pyoganesson.wiremsg import WireMsg
+from pyoganesson.wiremsg import WireMsg, ErrInvalidMsg
 from pyoganesson.packetsession import PacketSession
 
 ErrSessionSetup = 'ErrSessionSetup'
+ErrKeyError = 'ErrKeyError'
 
 
 def send_wire_error(msg_code: str, error_code: str, session: PacketSession) -> RetVal:
@@ -91,5 +92,41 @@ class OgServer:
 		# TODO: Implement OgServer server and client identity checking
 
 		return status
+
+	def read_data(self) -> RetVal:
+		'''Reads raw byte data from the network connection.
+		
+		Notes:
+		Like working with a raw socket, the contents don't matter, but they do have to fit within 
+		system memory.
+		'''
+
+		wm = WireMsg()
+		status = wm.read(self.session)
+		if status.error():
+			return status
+		
+		if wm.code != 'OgMsg' or not wm.has_field('Payload'):
+			return RetVal(ErrClientError)
+
+		status = self.key.decrypt(wm.attachments['Payload'])
+		if status.error():
+			return status
+		
+		status = wm.unflatten(status['data'])
+		if status.error():
+			return status
+
+		if not wm.has_field('Data') or not wm.has_field('NextKey'):
+			return RetVal(ErrInvalidMsg)
+		
+		next_key_str = CryptoString(wm.attachments['NextKey'])
+		if not next_key_str.is_valid():
+			return RetVal(ErrKeyError)
+		
+		self.nextkey = SecretKey(next_key_str)
+
+		return wm.attachments['Data']
+
 
 # TODO: Continue implementing OgServer class
