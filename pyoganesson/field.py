@@ -3,6 +3,10 @@ import struct
 
 from retval import RetVal, ErrBadType, ErrBadValue, ErrOutOfRange, ErrBadData, ErrNetworkError
 
+# MaxCommandLength is the maximum number of bytes a command is permitted to be. Note that
+# bulk transfers are not subject to this restriction -- just the initial command.
+MaxCommandLength = 16384
+
 # The DataField structure is the foundation of the lower levels of Oganesson messaging and is used
 # for data serialization. The serialized format consists of a type code, a 'uint16' length, and a
 # byte array of up to 64K.
@@ -554,7 +558,7 @@ class DataField:
 			return RetVal(ErrNetworkError)
 
 		try:
-			flatdata = conn.recv()
+			flatdata = conn.recv(MaxCommandLength)
 		except Exception as e:
 			return RetVal().wrap_exception(e)
 		

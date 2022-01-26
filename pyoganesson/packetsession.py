@@ -2,15 +2,11 @@ import socket
 
 from retval import RetVal, ErrEmptyData
 
-from pyoganesson.field import DataField
+from pyoganesson.field import DataField, MaxCommandLength
 
 # Constants and Configurable Globals
 
-# MaxCommandLength is the maximum number of bytes a command is permitted to be. Note that
-# bulk transfers are not subject to this restriction -- just the initial command.
 MinCommandLength = 35
-
-MaxCommandLength = 16384
 
 PacketSessionTimeout = 30.0
 
@@ -66,9 +62,11 @@ class PacketSession:
 			# The field is expected to be a byte string, so no need to call get()
 			size_read = size_read + len(df.value)
 		
-		out = b''.join(msgparts)
-		if len(out) != total_size:
+		flatdata = b''.join(msgparts)
+		if len(flatdata) != total_size:
 			return RetVal('ErrSize')
+		
+		out = DataField('singlepacket', flatdata)
 		
 		return RetVal().set_value('packet', out)
 
