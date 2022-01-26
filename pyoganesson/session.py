@@ -2,14 +2,15 @@ from base64 import b85encode
 import secrets
 import socket
 
-from pyeznacl import SecretKey, CryptoString, PublicKey
-from retval import RetVal, ErrEmptyData, ErrClientError
+from pyeznacl import SecretKey, CryptoString, PublicKey, EncryptionPair
+from retval import RetVal, ErrEmptyData, ErrClientError, ErrServerError
 
 from pyoganesson.wiremsg import WireMsg, ErrInvalidMsg
 from pyoganesson.packetsession import PacketSession
 
 ErrSessionSetup = 'ErrSessionSetup'
 ErrKeyError = 'ErrKeyError'
+ErrSessionMismatch = 'ErrSessionMismatch'
 
 
 def send_wire_error(msg_code: str, error_code: str, session: PacketSession) -> RetVal:
@@ -151,8 +152,8 @@ class OgServer:
 			return status
 		
 		wrapper = WireMsg('OgMsg')
-		wm.attachments['Payload'] = status['data']
-		status = wm.write(self.session)
+		wrapper.attachments['Payload'] = status['data']
+		status = wrapper.write(self.session)
 		if status.error():
 			return status
 		
@@ -161,4 +162,102 @@ class OgServer:
 		return RetVal()
 
 
-# TODO: Continue implementing OgServer class
+class OgClient:
+	'''Handles the client side of an encrypted Oganesson messaging session'''
+
+	def __init__(self, conn: socket.socket, fingerprint: str, serverfp: str):
+		self.session = PacketSession(conn)
+		self.key = None
+		self.nextkey = None
+		self.handlers = {}
+		self.fingerprint = fingerprint
+		self.serverfp = serverfp
+
+	def Setup(self) -> RetVal:
+		'''Handles the server side of setting up an encrypted comms channel with a client'''
+
+		wm = WireMsg('SessionSetup')
+		status = wm.write(self.session)
+		if status.error():
+			return status
+		
+		status = wm.read(self.session)
+		if status.error():
+			return status
+		
+		if wm.code != 'SessionSetup':
+			return RetVal(ErrSessionSetup, 'incorrect server session query response')
+		if wm.has_field('Error'):
+			return RetVal(wm.get_string_field('Error'))
+		if not wm.has_field('Session'):
+			return RetVal(ErrServerError, 'setup response missing Session field')
+		if wm.get_string_field('Session') != 'og':
+			return RetVal(ErrSessionMismatch, 
+				f"Expected 'og' response, got '{wm.get_string_field('Session')}'")
+		
+		# A regular Og session is encrypted, but performs no identity checking. Setup consists of 
+		# the client sending an ephemeral public key. The server receives it, generates a random 
+		# XSalsa20 key, encrypts it, and sends it to the client.
+
+		keypair = EncryptionPair()
+		if not keypair.is_valid():
+			return RetVal(ErrKeyError)
+		
+		wm = WireMsg('SessionKey')
+		wm.add_field('PublicKey', keypair.get_public_key())
+
+		if self.fingerprint:
+			wm.add_field('Fingerprint', self.fingerprint)
+		
+		status = wm.write(self.session)
+		if status.error():
+			return status
+		
+		status = wm.read(self.session)
+		if status.error():
+			return status
+		
+		if wm.code != 'SessionKey':
+			return RetVal(ErrSessionSetup, 
+				f"expected response code 'SessionKey' from server, got '{wm.code}'")
+		if wm.has_field('Error'):
+			return RetVal(wm.get_string_field('Error'))
+		if not wm.has_field('SessionKey'):
+			return RetVal(ErrServerError, 'server did not respond with session key')
+
+		enc_keystr = CryptoString(wm.get_string_field('SessionKey'))
+		if not enc_keystr.is_valid():
+			return RetVal(ErrServerError)
+		status = keypair.decrypt(enc_keystr.data)
+		if status.error():
+			return status
+		
+		wm = WireMsg()
+		status = wm.unflatten(status['data'])
+		if status.error():
+			return status
+		if not wm.has_field('SecretKey') or not wm.has_field('Fingerprint'):
+			return RetVal(ErrServerError, 'server failed to return key and fingerprint')
+
+		key_cs = CryptoString(wm.get_string_field('SecretKey'))
+		if not key_cs.is_valid():
+			return RetVal(ErrKeyError, 'server returned invalid session key')
+		self.key = key_cs
+		self.serverfp = wm.get_string_field('Fingerprint')
+
+		# TODO: Implement OgClient server and client identity checking
+		
+		return RetVal()
+		
+	def read_data(self) -> RetVal:
+		'''Reads raw byte data from the network connection.
+		
+		Notes:
+		Like working with a raw socket, the contents don't matter, but they do have to fit within 
+		system memory.
+		'''
+
+	def write_data(self, data: bytes) -> RetVal:
+		'''Writes raw byte data to the network connection'''
+
+	# TODO: Continue implementing OgClient class
