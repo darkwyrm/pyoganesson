@@ -19,7 +19,7 @@ def send_wire_error(msg_code: str, error_code: str, session: PacketSession) -> R
 		return RetVal(ErrEmptyData)
 	
 	wm = WireMsg(msg_code)
-	wm.add_field('Error', error_code)
+	wm.attachments['Error'] = error_code
 	return wm.write(session)
 
 
@@ -63,7 +63,7 @@ class OgServer:
 		if status.error():
 			return status
 
-		if wm.code != 'SessionKey' or not wm.has_field('PublicKey'):
+		if wm.code != 'SessionKey' or 'PublicKey' not in wm.attachments:
 			status = send_wire_error('SessionSetup', 'ErrProtocolError', self.session)
 			if status.error():
 				return status
@@ -89,7 +89,7 @@ class OgServer:
 		encmsg = pubkey.encrypt(status['bytes'])
 
 		wm = WireMsg('SessionKey')
-		wm.add_field('SessionKey', pubkey.public.prefix.encode() + ':' + encmsg, 'bytes')
+		wm.attachments['SessionKey'] = pubkey.public.prefix.encode() + b':' + encmsg['data']
 		status = wm.write(self.session)
 
 		# TODO: Implement OgServer server and client identity checking
@@ -109,7 +109,7 @@ class OgServer:
 		if status.error():
 			return status
 		
-		if wm.code != 'OgMsg' or not wm.has_field('Payload'):
+		if wm.code != 'OgMsg' or 'Payload' not in wm.attachments:
 			return RetVal(ErrClientError)
 
 		status = self.key.decrypt(wm.attachments['Payload'])
@@ -120,7 +120,7 @@ class OgServer:
 		if status.error():
 			return status
 
-		if not wm.has_field('Data') or not wm.has_field('NextKey'):
+		if 'Data' not in wm.attachments or 'NextKey' not in wm.attachments:
 			return RetVal(ErrInvalidMsg)
 		
 		next_key_str = CryptoString(wm.attachments['NextKey'])
@@ -138,10 +138,10 @@ class OgServer:
 			return RetVal(ErrEmptyData)
 		
 		wm = WireMsg('EncMsg')
-		wm.add_field('Data', data)
+		wm.attachments['Data'] = data
 		padding = secrets.token_bytes(secrets.randbelow(16)+1)
-		wm.add_field('Padding', str(b85encode(padding)))
-		wm.add_field('NextKey', self.nextkey.as_string())
+		wm.attachments['Padding'] = str(b85encode(padding))
+		wm.attachments['NextKey'] = self.nextkey.as_string()
 
 		status = wm.flatten()
 		if status.error():
@@ -187,13 +187,13 @@ class OgClient:
 		
 		if wm.code != 'SessionSetup':
 			return RetVal(ErrSessionSetup, 'incorrect server session query response')
-		if wm.has_field('Error'):
-			return RetVal(wm.get_string_field('Error'))
-		if not wm.has_field('Session'):
+		if 'Error' in wm.attachments:
+			return RetVal(wm.attachments['Error'])
+		if 'Session' not in wm.attachments:
 			return RetVal(ErrServerError, 'setup response missing Session field')
-		if wm.get_string_field('Session') != 'og':
+		if wm.attachments['Session'] != 'og':
 			return RetVal(ErrSessionMismatch, 
-				f"Expected 'og' response, got '{wm.get_string_field('Session')}'")
+				f"Expected 'og' response, got '{wm.attachments['Session']}'")
 		
 		# A regular Og session is encrypted, but performs no identity checking. Setup consists of 
 		# the client sending an ephemeral public key. The server receives it, generates a random 
@@ -204,10 +204,10 @@ class OgClient:
 			return RetVal(ErrKeyError)
 		
 		wm = WireMsg('SessionKey')
-		wm.add_field('PublicKey', keypair.get_public_key())
+		wm.attachments['PublicKey'] = keypair.get_public_key()
 
 		if self.fingerprint:
-			wm.add_field('Fingerprint', self.fingerprint)
+			wm.attachments['Fingerprint'] = self.fingerprint
 		
 		status = wm.write(self.session)
 		if status.error():
@@ -220,12 +220,12 @@ class OgClient:
 		if wm.code != 'SessionKey':
 			return RetVal(ErrSessionSetup, 
 				f"expected response code 'SessionKey' from server, got '{wm.code}'")
-		if wm.has_field('Error'):
-			return RetVal(wm.get_string_field('Error'))
-		if not wm.has_field('SessionKey'):
+		if 'Error' in wm.attachments:
+			return RetVal(wm.attachments['Error'])
+		if 'SessionKey' not in wm.attachments:
 			return RetVal(ErrServerError, 'server did not respond with session key')
 
-		enc_keystr = CryptoString(wm.get_string_field('SessionKey'))
+		enc_keystr = CryptoString(wm.attachments['SessionKey'])
 		if not enc_keystr.is_valid():
 			return RetVal(ErrServerError)
 		status = keypair.decrypt(enc_keystr.data)
@@ -236,14 +236,14 @@ class OgClient:
 		status = wm.unflatten(status['data'])
 		if status.error():
 			return status
-		if not wm.has_field('SecretKey') or not wm.has_field('Fingerprint'):
+		if 'SecretKey' not in wm.attachments or 'Fingerprint' not in wm.attachments:
 			return RetVal(ErrServerError, 'server failed to return key and fingerprint')
 
-		key_cs = CryptoString(wm.get_string_field('SecretKey'))
+		key_cs = CryptoString(wm.attachments['SecretKey'])
 		if not key_cs.is_valid():
 			return RetVal(ErrKeyError, 'server returned invalid session key')
-		self.key = key_cs
-		self.serverfp = wm.get_string_field('Fingerprint')
+		self.key = SecretKey(key_cs)
+		self.serverfp = wm.attachments['Fingerprint']
 
 		# TODO: Implement OgClient server and client identity checking
 		
@@ -262,7 +262,7 @@ class OgClient:
 		if status.error():
 			return status
 		
-		if wm.code != 'OgMsg' or not wm.has_field('Payload'):
+		if wm.code != 'OgMsg' or not 'Payload' not in wm.attachments:
 			return RetVal(ErrClientError)
 
 		status = self.key.decrypt(wm.attachments['Payload'])
@@ -273,7 +273,7 @@ class OgClient:
 		if status.error():
 			return status
 
-		if not wm.has_field('Data') or not wm.has_field('NextKey'):
+		if 'Data' not in wm.attachments or 'NextKey' not in wm.attachments:
 			return RetVal(ErrInvalidMsg)
 		
 		next_key_str = CryptoString(wm.attachments['NextKey'])
@@ -291,10 +291,10 @@ class OgClient:
 			return RetVal(ErrEmptyData)
 		
 		wm = WireMsg('EncMsg')
-		wm.add_field('Data', data)
+		wm.attachments['Data'] = data
 		padding = secrets.token_bytes(secrets.randbelow(16)+1)
-		wm.add_field('Padding', str(b85encode(padding)))
-		wm.add_field('NextKey', self.nextkey.as_string())
+		wm.attachments['Padding'] = str(b85encode(padding))
+		wm.attachments['NextKey'] = self.nextkey.as_string()
 
 		status = wm.flatten()
 		if status.error():
@@ -311,5 +311,3 @@ class OgClient:
 			return status
 		
 		return RetVal()
-
-	# TODO: Continue implementing OgClient class

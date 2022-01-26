@@ -1,4 +1,4 @@
-from retval import RetVal, ErrEmptyData, ErrBadType, ErrNotFound, ErrBadData, ErrNetworkError
+from retval import RetVal, ErrEmptyData, ErrBadData, ErrNetworkError
 
 from pyoganesson.field import DataField, unflatten_all
 from pyoganesson.packetsession import PacketSession
@@ -11,78 +11,6 @@ class WireMsg:
 	def __init__(self, msgcode = ''):
 		self.code = msgcode
 		self.attachments = {}
-	
-	def add_field(self, name: str, data: any, dtype='') -> RetVal:
-		'''Method for attaching data to the message
-
-		Parameters:
-		name: the name of the field to attach
-		data: the data to attach as the field value
-
-		Returns:
-		error codes only
-		'''
-		if not name:
-			return RetVal(ErrEmptyData)
-		
-		if not isinstance(name, str):
-			return RetVal(ErrBadType, 'field indices must be strings')
-		
-		if data is None:
-			del self.attachments[name]
-		else:
-			df = DataField()
-			if dtype:
-				status = df.set(dtype, data)
-			else:
-				status = df.set_from_value(data)
-			if status.error():
-				return status
-			
-			self.attachments[name] = df
-		
-		return RetVal()
-	
-	def get_field(self, name: str) -> RetVal:
-		'''Returns the value of the specified attachment
-		
-		Parameters:
-		index: the name of the attached field to obtain
-
-		Returns:
-		field 'type': the type code of value returned
-		field 'value': the value of the field
-		'''
-
-		if not name or len(self.attachments) == 0:
-			return RetVal(ErrEmptyData)
-		
-		if name not in self.attachments:
-			return RetVal(ErrNotFound)
-		
-		return self.attachments[name].get()
-	
-	def has_field(self, name: str) -> bool:
-		'''Returns true if the message has the specified field'''
-		return name in self.attachments
-	
-	def get_string_field(self, name: str) -> str:
-		'''Convenience method for working with string fields
-		
-		Parameters:
-		name: the name of the attachment to obtain
-		
-		Returns:
-		Value of the specified string field or empty string on error.'''
-
-		if not name or not name in self.attachments:
-			return ''
-
-		status = self.attachments[name].get()
-		if status.error() or status['type'] not in ['string', 'msgcode']:
-			return ''
-
-		return status['value']
 	
 	def flatten(self) -> RetVal:
 		'''Serializes the message into a byte string
@@ -144,7 +72,7 @@ class WireMsg:
 			return RetVal(ErrNetworkError)
 		
 		df = status['packet']
-		if df.type != 'bytes':
+		if df.type != 'singlepacket':
 			return RetVal(ErrBadData)
 		
 		# We can skip the get() call because this data field is a byte array containing flattened
