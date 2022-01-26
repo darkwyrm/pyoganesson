@@ -5,6 +5,7 @@ from time import sleep
 from pyoganesson.session import OgServer, OgClient
 
 def og_session_client(mutex: Lock, port: int):
+	'''Function representing the client in test_og_session() test'''
 
 	# This forces the client to wait until the server thread is ready
 	mutex.acquire()
@@ -35,7 +36,9 @@ def test_og_session():
 	listener.bind(('localhost', testport))
 
 	mutex.release()
-	conn = listener.accept()
+	
+	listener.listen(1)
+	conn, _ = listener.accept()
 
 	server = OgServer(conn, 'abcdef')
 	status = server.Setup()
