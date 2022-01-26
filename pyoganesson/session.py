@@ -257,7 +257,59 @@ class OgClient:
 		system memory.
 		'''
 
+		wm = WireMsg()
+		status = wm.read(self.session)
+		if status.error():
+			return status
+		
+		if wm.code != 'OgMsg' or not wm.has_field('Payload'):
+			return RetVal(ErrClientError)
+
+		status = self.key.decrypt(wm.attachments['Payload'])
+		if status.error():
+			return status
+		
+		status = wm.unflatten(status['data'])
+		if status.error():
+			return status
+
+		if not wm.has_field('Data') or not wm.has_field('NextKey'):
+			return RetVal(ErrInvalidMsg)
+		
+		next_key_str = CryptoString(wm.attachments['NextKey'])
+		if not next_key_str.is_valid():
+			return RetVal(ErrKeyError)
+		
+		self.nextkey = SecretKey(next_key_str)
+
+		return wm.attachments['Data']
+
 	def write_data(self, data: bytes) -> RetVal:
 		'''Writes raw byte data to the network connection'''
+
+		if not data:
+			return RetVal(ErrEmptyData)
+		
+		wm = WireMsg('EncMsg')
+		wm.add_field('Data', data)
+		padding = secrets.token_bytes(secrets.randbelow(16)+1)
+		wm.add_field('Padding', str(b85encode(padding)))
+		wm.add_field('NextKey', self.nextkey.as_string())
+
+		status = wm.flatten()
+		if status.error():
+			return status
+		
+		status = self.key.encrypt(status['bytes'])
+		if status.error():
+			return status
+		
+		wrapper = WireMsg('OgMsg')
+		wrapper.attachments['Payload'] = status['data']
+		status = wrapper.write(self.session)
+		if status.error():
+			return status
+		
+		return RetVal()
 
 	# TODO: Continue implementing OgClient class
